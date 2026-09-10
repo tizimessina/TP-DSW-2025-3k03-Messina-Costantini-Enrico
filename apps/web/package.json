@@ -7,13 +7,11 @@
     "dev": "vite --clearScreen false",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "lint": "eslint \"src/**/*.ts\"",
+    "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "test": "vitest run",
     "test:ui": "vitest --ui"
   },
   "dependencies": {
-    "@repo/db": "workspace:*",
-    "@repo/ui": "workspace:*",
     "axios": "^1.13.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

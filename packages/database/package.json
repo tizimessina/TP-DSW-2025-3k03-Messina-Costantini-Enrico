@@ -3,16 +3,23 @@
   "version": "0.0.0",
   "type": "module",
   "prisma": {
-    "schema": "prisma/schema.prisma"
+    "schema": "prisma/schema.prisma",
+    "seed": "tsx prisma/seed.ts"
   },
   "scripts": {
     "build": "prisma generate && tsc -p tsconfig.json",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev --skip-generate",
-    "db:deploy": "prisma migrate deploy"
+    "db:deploy": "prisma migrate deploy",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:reset": "prisma migrate reset --force"
   },
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/node": "^24.7.2",
+    "bcrypt": "^6.0.0",
     "prisma": "^6.17.1",
+    "tsx": "^4.20.6",
     "typescript": "5.5.4"
   },
   "dependencies": {
