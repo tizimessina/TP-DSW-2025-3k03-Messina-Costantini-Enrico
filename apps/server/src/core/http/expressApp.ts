@@ -20,6 +20,7 @@ import solicitudRouter from "../../modules/solicitud/solicitud.router.js";
 // Middlewares
 import { errorMiddleware } from '../errors/errorMiddleware.js';
 import { env } from '../config/env.js';
+import docsRouter from '../docs/docs.router.js';
 
 export function createApp() {
   const app = express();
@@ -31,6 +32,7 @@ export function createApp() {
   app.use(express.json());
   if (env.NODE_ENV !== 'test') app.use(morgan('dev'));
   app.get('/health', (_req, res) => res.json({ ok: true }));
+  app.use('/docs', docsRouter);
   app.use('/provincias', provinciaRouter);
   app.use('/localidades', localidadRouter);
   app.use('/usuarios', usuarioRouter);
