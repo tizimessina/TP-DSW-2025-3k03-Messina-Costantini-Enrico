@@ -1,0 +1,28 @@
+# Blueprint de Render para el backend de AgroApp.
+# Render → New → Blueprint → elegir este repo. Las variables marcadas sync: false se cargan a mano en el dashboard.
+services:
+  - type: web
+    name: agroapp-api
+    runtime: node
+    plan: free
+    region: oregon
+    branch: main
+    rootDir: .
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @repo/db build && pnpm --filter server build
+    startCommand: node apps/server/dist/index.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: PORT
+        value: "10000"
+      - key: JWT_EXPIRES_IN
+        value: 8h
+      - key: CORS_ORIGIN
+        value: https://agroapp.dev,https://www.agroapp.dev
+      - key: DATABASE_URL
+        sync: false # URL de Aiven con ?ssl-mode=REQUIRED
+      - key: JWT_SECRET
+        generateValue: true
