@@ -1,13 +1,19 @@
-import React from 'react'
-import { createRoot } from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'
-import App from './App' 
-import './style.css'
+import React from "react";
+import { createRoot } from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
+import App from "./App";
+import { AuthProvider } from "./auth/AuthContext";
+import { FeedbackProvider } from "./components/feedback";
+import "./style.css";
 
-createRoot(document.getElementById('app')!).render(
+createRoot(document.getElementById("app")!).render(
   <React.StrictMode>
     <BrowserRouter>
-      <App />
+      <FeedbackProvider>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </FeedbackProvider>
     </BrowserRouter>
-  </React.StrictMode>
-)
+  </React.StrictMode>,
+);
