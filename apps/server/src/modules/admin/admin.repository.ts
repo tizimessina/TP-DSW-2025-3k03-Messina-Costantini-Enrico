@@ -1,16 +1,17 @@
 import { prisma } from "@repo/db";
+import { publicUserSelect } from "../../core/db/selects.js";
 
 export const adminRepo = {
   list: () =>
     prisma.admin_profile.findMany({
       orderBy: { id_user: "asc" },
-      include: { users: true },
+      include: { users: { select: publicUserSelect } },
     }),
 
   getById: (id: bigint) =>
     prisma.admin_profile.findUnique({
       where: { id_user: id },
-      include: { users: true },
+      include: { users: { select: publicUserSelect } },
     }),
 
   create: (data: {
@@ -26,7 +27,7 @@ export const adminRepo = {
           : {}),
         observaciones: data.observaciones ?? null,
       },
-      include: { users: true },
+      include: { users: { select: publicUserSelect } },
     }),
 
   update: (
@@ -46,7 +47,7 @@ export const adminRepo = {
           ? { observaciones: data.observaciones }
           : {}),
       },
-      include: { users: true },
+      include: { users: { select: publicUserSelect } },
     }),
 
   remove: (id: bigint) =>

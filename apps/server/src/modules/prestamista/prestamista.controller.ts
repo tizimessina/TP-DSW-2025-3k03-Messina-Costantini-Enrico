@@ -2,13 +2,15 @@ import { Request, Response, NextFunction } from "express";
 import {
   PrestamistaCreateSchema,
   PrestamistaParamsSchema,
+  PrestamistaQuerySchema,
   PrestamistaUpdateSchema,
 } from "./prestamista.schema.js";
 import { prestamistaService } from "./prestamista.service.js";
 
-export const list = async (_req: Request, res: Response, next: NextFunction) => {
+export const list = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    res.json(await prestamistaService.list());
+    const filters = PrestamistaQuerySchema.parse(req.query);
+    res.json(await prestamistaService.list(filters));
   } catch (e) { next(e); }
 };
 

@@ -8,52 +8,37 @@ export const precioRepo = {
       orderBy: [{ fecha_desde: 'desc' }],
     }),
 
-  // Obtener uno por id
+  /** Precio vigente: el de mayor fecha_desde que no sea futura respecto a `fecha`. */
+  findVigente: (id_servicio: bigint, fecha: Date = new Date()) =>
+    prisma.precio.findFirst({
+      where: { id_servicio, fecha_desde: { lte: fecha } },
+      orderBy: { fecha_desde: 'desc' },
+    }),
+
   getById: (id: bigint) =>
     prisma.precio.findUnique({
       where: { id_precio: id },
+      include: { servicio: { select: { id_servicio: true, id_prestamista: true, nombre: true } } },
     }),
 
-  // Crear
-  create: (data: {
-    id_servicio: bigint;
-    fecha_desde: Date;
-    valor: number;
-  }) =>
-    prisma.$transaction(async (tx: any) => {
-      const row = await tx.precio.create({
-        data: {
-          id_servicio: data.id_servicio,
-          fecha_desde: data.fecha_desde,
-          valor: data.valor,
-        },
-      });
-
-      return tx.precio.findUnique({
-        where: { id_precio: row.id_precio },
-      });
+  create: (data: { id_servicio: bigint; fecha_desde: Date; valor: number }) =>
+    prisma.precio.create({
+      data: {
+        id_servicio: data.id_servicio,
+        fecha_desde: data.fecha_desde,
+        valor: data.valor,
+      },
     }),
 
-  // Actualizar
-  update: (id: bigint, data: {
-    fecha_desde?: Date;
-    valor?: number;
-  }) =>
-    prisma.$transaction(async (tx: any) => {
-      const row = await tx.precio.update({
-        where: { id_precio: id },
-        data: {
-          ...(data.fecha_desde !== undefined ? { fecha_desde: data.fecha_desde } : {}),
-          ...(data.valor !== undefined ? { valor: data.valor } : {}),
-        },
-      });
-
-      return tx.precio.findUnique({
-        where: { id_precio: row.id_precio },
-      });
+  update: (id: bigint, data: { fecha_desde?: Date; valor?: number }) =>
+    prisma.precio.update({
+      where: { id_precio: id },
+      data: {
+        ...(data.fecha_desde !== undefined ? { fecha_desde: data.fecha_desde } : {}),
+        ...(data.valor !== undefined ? { valor: data.valor } : {}),
+      },
     }),
 
-  // Eliminar
   remove: (id: bigint) =>
     prisma.precio.delete({
       where: { id_precio: id },
