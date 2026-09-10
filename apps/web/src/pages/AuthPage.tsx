@@ -1,209 +1,155 @@
-import { useEffect, useState } from "react";
-import { login, RoleName, signup, type AuthUser } from "../api/auth";
+import { useEffect, useState, type FormEvent } from "react";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { getApiErrorMessage } from "../api/base";
+import { getLocalidades, type Localidad } from "../api/localidades";
+import { useAuth } from "../auth/AuthContext";
+import { useFeedback } from "../components/feedback";
+import { Alert, Button, Field, Input, Select } from "../components/ui";
+
+type Mode = "login" | "register";
 
 type FormState = {
   email: string;
   password: string;
   nombre: string;
   apellido: string;
-  rol: RoleName;
+  rol: "CLIENTE" | "PRESTAMISTA";
+  id_localidad: string;
 };
 
-type AuthPageProps = {
-  onAuthChange?: (user: AuthUser | null) => void;
+const initial: FormState = { email: "", password: "", nombre: "", apellido: "", rol: "CLIENTE", id_localidad: "" };
+
+type Props = {
+  /** Modo inicial del formulario (input property). */
+  initialMode?: Mode;
+  /** Se dispara al autenticarse correctamente (output property). */
+  onAuthenticated?: (email: string) => void;
 };
 
-export default function AuthPage({ onAuthChange }: AuthPageProps) {
-  const [isLogin, setIsLogin] = useState<boolean>(true);
-  const [form, setForm] = useState<FormState>({
-    email: "",
-    password: "",
-    nombre: "",
-    apellido: "",
-    rol: "CLIENTE",
-  });
-  const [user, setUser] = useState<AuthUser | null>(null);
+export default function AuthPage({ initialMode = "login", onAuthenticated }: Props) {
+  const { user, login, register } = useAuth();
+  const { toast } = useFeedback();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as { from?: string } | null)?.from ?? "/";
+
+  const [mode, setMode] = useState<Mode>(initialMode);
+  const [form, setForm] = useState<FormState>(initial);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [localidades, setLocalidades] = useState<Localidad[]>([]);
 
   useEffect(() => {
-    const raw = localStorage.getItem("auth:user");
-    if (raw) {
-      try {
-        const u = JSON.parse(raw) as AuthUser;
-        setUser(u);
-        onAuthChange?.(u); // sincronizar si ya estaba logueado
-      } catch {
-        localStorage.removeItem("auth:user");
-        onAuthChange?.(null); // sincronizar si hubo error
-      }
+    if (mode === "register" && localidades.length === 0) {
+      getLocalidades().then(setLocalidades).catch(() => setLocalidades([]));
     }
-  }, [onAuthChange]);
+  }, [mode, localidades.length]);
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-  };
+  if (user) return <Navigate to={from} replace />;
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const set = (name: keyof FormState) => (e: { target: { value: string } }) =>
+    setForm((prev) => ({ ...prev, [name]: e.target.value }));
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-
+    setSubmitting(true);
     try {
-      if (isLogin) {
-        const u = await login(form.email, form.password);
-        setUser(u);
-        localStorage.setItem("auth:user", JSON.stringify(u));
-        onAuthChange?.(u); // 🔔 avisamos a App
-      } else {
-        await signup({
-          email: form.email,
-          password: form.password,
-          nombre: form.nombre,
-          apellido: form.apellido,
-          roles: [form.rol],
-        });
-
-        const logged = await login(form.email, form.password);
-        setUser(logged);
-        localStorage.setItem("auth:user", JSON.stringify(logged));
-        onAuthChange?.(logged); // 🔔 avisamos a App
-      }
-    } catch (e: unknown) {
-      const message =
-        (e as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message ??
-        (e instanceof Error ? e.message : "Error");
-      setError(message);
+      const logged =
+        mode === "login"
+          ? await login(form.email, form.password)
+          : await register({
+              email: form.email,
+              password: form.password,
+              nombre: form.nombre,
+              apellido: form.apellido,
+              rol: form.rol,
+              id_localidad: form.id_localidad ? Number(form.id_localidad) : null,
+            });
+      toast.success(mode === "login" ? `Bienvenido, ${logged.nombre}` : "Cuenta creada correctamente");
+      onAuthenticated?.(logged.email);
+      navigate(from, { replace: true });
+    } catch (err) {
+      setError(getApiErrorMessage(err, "No se pudo iniciar sesión"));
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  // Vista cuando el usuario ya está logueado
-  if (user) {
-    return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-start justify-center pt-16">
-        <div className="w-full max-w-md rounded-xl bg-slate-900/80 p-6 shadow-xl ring-1 ring-emerald-500/20">
-          <h2 className="text-2xl font-bold mb-2 text-emerald-300">
-            Bienvenido, {user.nombre}!
-          </h2>
-          <p className="text-sm text-slate-200 mb-1">
-            <span className="font-semibold">Email:</span> {user.email}
-          </p>
-          <p className="text-sm text-slate-200 mb-4">
-            <span className="font-semibold">Roles:</span>{" "}
-            {user.roles?.join(", ") || "(sin roles)"}
-          </p>
-
-          <button
-            className="mt-2 w-full rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-emerald-500 transition"
-            onClick={() => {
-              setUser(null);
-              localStorage.removeItem("auth:user");
-              onAuthChange?.(null); // 🔔 avisamos que se deslogueó
-            }}
-          >
-            Cerrar sesión
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Vista login / signup
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex items-start justify-center pt-16">
-      <div className="w-full max-w-md rounded-xl bg-slate-900/80 p-6 shadow-xl ring-1 ring-emerald-500/20">
-        <h1 className="text-2xl font-bold mb-6 text-center text-emerald-300">
-          {isLogin ? "Iniciar sesión" : "Crear cuenta"}
+    <div className="mx-auto w-full max-w-md">
+      <div className="rounded-xl border border-emerald-500/20 bg-slate-900/80 p-6 shadow-xl">
+        <h1 className="mb-6 text-center text-2xl font-bold text-emerald-300">
+          {mode === "login" ? "Iniciar sesión" : "Crear cuenta"}
         </h1>
 
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <div>
-            <input
-              type="email"
-              name="email"
-              placeholder="Email"
-              value={form.email}
-              onChange={handleChange}
-              required
-              className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
-          </div>
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+          <Field label="Email">
+            <Input type="email" name="email" autoComplete="email" value={form.email} onChange={set("email")} required />
+          </Field>
 
-          <div>
-            <input
+          <Field label="Contraseña" hint={mode === "register" ? "Mínimo 6 caracteres" : undefined}>
+            <Input
               type="password"
               name="password"
-              placeholder="Contraseña"
+              autoComplete={mode === "login" ? "current-password" : "new-password"}
               value={form.password}
-              onChange={handleChange}
+              onChange={set("password")}
               required
-              className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              minLength={mode === "register" ? 6 : undefined}
             />
-          </div>
+          </Field>
 
-          {!isLogin && (
+          {mode === "register" && (
             <>
-              <div>
-                <input
-                  name="nombre"
-                  placeholder="Nombre"
-                  value={form.nombre}
-                  onChange={handleChange}
-                  required
-                  className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-              <div>
-                <input
-                  name="apellido"
-                  placeholder="Apellido"
-                  value={form.apellido}
-                  onChange={handleChange}
-                  required
-                  className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Nombre">
+                  <Input name="nombre" value={form.nombre} onChange={set("nombre")} required />
+                </Field>
+                <Field label="Apellido">
+                  <Input name="apellido" value={form.apellido} onChange={set("apellido")} required />
+                </Field>
               </div>
 
-              <div className="text-sm">
-                <label className="block mb-1 text-slate-200">
-                  Tipo de usuario:
-                </label>
-                <select
-                  name="rol"
-                  value={form.rol}
-                  onChange={handleChange}
-                  required
-                  className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                >
-                  <option value="CLIENTE">Cliente</option>
-                  <option value="PRESTAMISTA">Prestamista</option>
-                </select>
-              </div>
+              <Field label="Quiero registrarme como" hint="Cliente: solicito servicios para mis campos. Prestamista: ofrezco servicios.">
+                <Select name="rol" value={form.rol} onChange={set("rol")}>
+                  <option value="CLIENTE">Cliente (productor)</option>
+                  <option value="PRESTAMISTA">Prestamista (contratista)</option>
+                </Select>
+              </Field>
+
+              <Field label="Localidad (opcional)">
+                <Select name="id_localidad" value={form.id_localidad} onChange={set("id_localidad")}>
+                  <option value="">Sin localidad</option>
+                  {localidades.map((l) => (
+                    <option key={l.id_localidad} value={l.id_localidad}>
+                      {l.nombre}
+                      {l.provincia ? ` (${l.provincia.nombre})` : ""}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
             </>
           )}
 
-          <button
-            type="submit"
-            className="mt-2 w-full rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-emerald-500 transition"
-          >
-            {isLogin ? "Entrar" : "Registrarse"}
-          </button>
+          {error && <Alert kind="error">{error}</Alert>}
+
+          <Button type="submit" className="w-full" disabled={submitting}>
+            {submitting ? "Enviando…" : mode === "login" ? "Entrar" : "Registrarme"}
+          </Button>
         </form>
 
-        {error && (
-          <p className="mt-3 text-sm text-red-400 text-center">{error}</p>
-        )}
-
-        <p className="mt-4 text-xs text-center text-slate-300">
-          {isLogin ? "¿No tenés cuenta?" : "¿Ya tenés cuenta?"}{" "}
+        <p className="mt-5 text-center text-xs text-slate-400">
+          {mode === "login" ? "¿No tenés cuenta?" : "¿Ya tenés cuenta?"}{" "}
           <button
             type="button"
-            onClick={() => setIsLogin((v) => !v)}
-            className="text-emerald-300 underline-offset-2 hover:underline"
+            className="font-semibold text-emerald-300 underline-offset-2 hover:underline"
+            onClick={() => {
+              setMode((m) => (m === "login" ? "register" : "login"));
+              setError(null);
+            }}
           >
-            {isLogin ? "Crear una" : "Iniciar sesión"}
+            {mode === "login" ? "Crear una" : "Iniciar sesión"}
           </button>
         </p>
       </div>

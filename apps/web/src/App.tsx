@@ -1,187 +1,61 @@
-import { NavLink, Route, Routes } from "react-router-dom";
-import { useEffect, useState } from "react";
-import type { AuthUser } from "./api/auth";
+import { Route, Routes } from "react-router-dom";
+import ProtectedRoute from "./auth/ProtectedRoute";
+import Layout from "./components/Layout";
 
 import HomePage from "./pages/HomePage";
 import AuthPage from "./pages/AuthPage";
-import CategoriasServicioPage from "./pages/CategoriasServicioPage";
-import InsumosPage from "./pages/InsumosPage";
-import ServiciosPage from "./pages/ServiciosPage";
-import PreciosPage from "./pages/PreciosPage";
-import CamposPage from "./pages/CamposPage";
-import LocalidadesPage from "./pages/LocalidadesPage";
-import ProvinciasPage from "./pages/ProvinciasPage";
-import SolicitudesPage from "./pages/SolicitudesPage";
 import ProfilePage from "./pages/ProfilePage";
-
+import ServiciosPage from "./pages/ServiciosPage";
+import ServicioDetailPage from "./pages/ServicioDetailPage";
+import PrestamistasPage from "./pages/PrestamistasPage";
+import PrestamistaDetailPage from "./pages/PrestamistaDetailPage";
+import CamposPage from "./pages/CamposPage";
+import CampoDetailPage from "./pages/CampoDetailPage";
+import SolicitudesPage from "./pages/SolicitudesPage";
+import SolicitudDetailPage from "./pages/SolicitudDetailPage";
+import MisServiciosPage from "./pages/MisServiciosPage";
+import PreciosPage from "./pages/PreciosPage";
+import UsuariosPage from "./pages/admin/UsuariosPage";
+import ProvinciasPage from "./pages/admin/ProvinciasPage";
+import LocalidadesPage from "./pages/admin/LocalidadesPage";
+import CategoriasPage from "./pages/admin/CategoriasPage";
+import InsumosPage from "./pages/admin/InsumosPage";
+import NotFoundPage from "./pages/NotFoundPage";
 
 export default function App() {
-  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
-
-  // Leer usuario logueado desde localStorage al montar
-  useEffect(() => {
-    const raw = localStorage.getItem("auth:user");
-    if (raw) {
-      try {
-        setAuthUser(JSON.parse(raw));
-      } catch {
-        localStorage.removeItem("auth:user");
-      }
-    }
-  }, []);
-
   return (
-    <div className="w-full min-h-screen flex flex-col bg-gray-900 text-white">
-      {/* HEADER */}
-      <header className="w-full bg-green-800 px-8 py-3 flex justify-between items-center shadow-lg">
-        <NavLink
-          to="/"
-          className="text-white font-bold text-xl hover:opacity-90 transition"
-        >
-          AgroApp 🌾
-        </NavLink>
+    <Routes>
+      <Route element={<Layout />}>
+        {/* Públicas */}
+        <Route path="/" element={<HomePage />} />
+        <Route path="/auth" element={<AuthPage />} />
+        <Route path="/servicios" element={<ServiciosPage />} />
+        <Route path="/servicios/:id" element={<ServicioDetailPage />} />
+        <Route path="/prestamistas" element={<PrestamistasPage />} />
+        <Route path="/prestamistas/:id" element={<PrestamistaDetailPage />} />
 
-        <nav className="flex gap-6 text-white font-medium">
-          <NavLink
-            to="/categorias"
-            className={({ isActive }) =>
-              `relative transition pb-1 hover:text-green-200 ${
-                isActive ? "text-green-200 after:w-full" : "after:w-0"
-              } after:absolute after:left-0 after:-bottom-0.5 after:h-[2px]
-                after:bg-green-300 after:transition-all after:duration-300`
-            }
-          >
-            Categorías
-          </NavLink>
+        {/* Cualquier usuario autenticado */}
+        <Route path="/perfil" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+        <Route path="/solicitudes" element={<ProtectedRoute><SolicitudesPage /></ProtectedRoute>} />
+        <Route path="/solicitudes/:id" element={<ProtectedRoute><SolicitudDetailPage /></ProtectedRoute>} />
 
-          <NavLink
-            to="/insumos"
-            className={({ isActive }) =>
-              `relative transition pb-1 hover:text-green-200 ${
-                isActive ? "text-green-200 after:w-full" : "after:w-0"
-              } after:absolute after:left-0 after:-bottom-0.5 after:h-[2px]
-                after:bg-green-300 after:transition-all after:duration-300`
-            }
-          >
-            Insumos
-          </NavLink>
+        {/* Cliente */}
+        <Route path="/campos" element={<ProtectedRoute roles={["CLIENTE", "ADMIN"]}><CamposPage /></ProtectedRoute>} />
+        <Route path="/campos/:id" element={<ProtectedRoute roles={["CLIENTE", "ADMIN"]}><CampoDetailPage /></ProtectedRoute>} />
 
-          <NavLink
-            to="/servicios"
-            className={({ isActive }) =>
-              `relative transition pb-1 hover:text-green-200 ${
-                isActive ? "text-green-200 after:w-full" : "after:w-0"
-              } after:absolute after:left-0 after:-bottom-0.5 after:h-[2px]
-                after:bg-green-300 after:transition-all after:duration-300`
-            }
-          >
-            Servicios
-          </NavLink>
+        {/* Prestamista */}
+        <Route path="/mis-servicios" element={<ProtectedRoute roles={["PRESTAMISTA"]}><MisServiciosPage /></ProtectedRoute>} />
+        <Route path="/precios" element={<ProtectedRoute roles={["PRESTAMISTA", "ADMIN"]}><PreciosPage /></ProtectedRoute>} />
 
-          <NavLink
-            to="/solicitudes"
-            className={({ isActive }) =>
-              `relative transition pb-1 hover:text-green-200 ${
-                isActive ? "text-green-200 after:w-full" : "after:w-0"
-              } after:absolute after:left-0 after:-bottom-0.5 after:h-[2px] after:bg-green-300 after:transition-all after:duration-300`
-            }
-          >
-            Solicitudes
-          </NavLink>
+        {/* Administración */}
+        <Route path="/admin/usuarios" element={<ProtectedRoute roles={["ADMIN"]}><UsuariosPage /></ProtectedRoute>} />
+        <Route path="/admin/provincias" element={<ProtectedRoute roles={["ADMIN"]}><ProvinciasPage /></ProtectedRoute>} />
+        <Route path="/admin/localidades" element={<ProtectedRoute roles={["ADMIN"]}><LocalidadesPage /></ProtectedRoute>} />
+        <Route path="/admin/categorias" element={<ProtectedRoute roles={["ADMIN"]}><CategoriasPage /></ProtectedRoute>} />
+        <Route path="/admin/insumos" element={<ProtectedRoute roles={["ADMIN"]}><InsumosPage /></ProtectedRoute>} />
 
-          <NavLink
-            to="/precios"
-            className={({ isActive }) =>
-              `relative transition pb-1 hover:text-green-200 ${
-                isActive ? "text-green-200 after:w-full" : "after:w-0"
-              } after:absolute after:left-0 after:-bottom-0.5 after:h-[2px]
-                after:bg-green-300 after:transition-all after:duration-300`
-            }
-          >
-            Precios
-          </NavLink>
-
-          <NavLink
-            to="/campos"
-            className={({ isActive }) =>
-              `relative transition pb-1 hover:text-green-200 ${
-                isActive ? "text-green-200 after:w-full" : "after:w-0"
-              } after:absolute after:left-0 after:-bottom-0.5 after:h-[2px]
-                after:bg-green-300 after:transition-all after:duration-300`
-            }
-          >
-            Campos
-          </NavLink>
-
-          <NavLink
-            to="/provincias"
-            className={({ isActive }) =>
-              `relative transition pb-1 hover:text-green-200 ${
-                isActive ? "text-green-200 after:w-full" : "after:w-0"
-              } after:absolute after:left-0 after:-bottom-0.5 after:h-[2px]
-                after:bg-green-300 after:transition-all after:duration-300`
-            }
-          >
-            Provincias
-          </NavLink>
-
-          <NavLink
-            to="/localidades"
-            className={({ isActive }) =>
-              `relative transition pb-1 hover:text-green-200 ${
-                isActive ? "text-green-200 after:w-full" : "after:w-0"
-              } after:absolute after:left-0 after:-bottom-0.5 after:h-[2px]
-                after:bg-green-300 after:transition-all after:duration-300`
-            }
-          >
-            Localidades
-          </NavLink>
-
-          {/* Botón login / perfil según estado */}
-          {authUser ? (
-            <NavLink
-              to="/perfil"
-              className="bg-white text-green-800 font-semibold px-4 py-1.5 rounded-md hover:bg-green-100 transition shadow-sm"
-            >
-              Mi Perfil
-            </NavLink>
-          ) : (
-            <NavLink
-              to="/auth"
-              className="bg-white text-green-800 font-semibold px-4 py-1.5 rounded-md hover:bg-green-100 transition shadow-sm"
-            >
-              Login / Signup
-            </NavLink>
-          )}
-        </nav>
-      </header>
-
-      {/* CONTENIDO */}
-      <div className="flex-1 w-full">
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route
-            path="/auth"
-            element={<AuthPage onAuthChange={setAuthUser} />}
-          />
-          <Route path="/categorias" element={<CategoriasServicioPage />} />
-          <Route path="/insumos" element={<InsumosPage />} />
-          <Route path="/servicios" element={<ServiciosPage />} />
-          <Route path="/precios" element={<PreciosPage />} />
-          <Route path="/campos" element={<CamposPage />} />
-          <Route path="/provincias" element={<ProvinciasPage />} />
-          <Route path="/localidades" element={<LocalidadesPage />} />
-          <Route path="/solicitudes" element={<SolicitudesPage />} />
-          <Route path="/perfil" element={<ProfilePage />} />
-
-          <Route
-            path="*"
-            element={
-              <div className="p-6 text-white">404 – Página no encontrada</div>
-            }
-          />
-        </Routes>
-      </div>
-    </div>
+        <Route path="*" element={<NotFoundPage />} />
+      </Route>
+    </Routes>
   );
 }
