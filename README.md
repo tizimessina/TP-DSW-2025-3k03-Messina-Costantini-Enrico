@@ -1,45 +1,72 @@
-# TP-DSW-2025-3k03-Messina-Costantini
+# AgroApp — TP DSW 2025 (3k03)
+
+Plataforma que conecta **productores agropecuarios (clientes)** con **contratistas rurales (prestamistas)**: los prestamistas publican servicios (siembra, cosecha, fumigación…) con precio por hectárea; los clientes registran sus campos y solicitan servicios; el prestamista acepta, rechaza o completa cada solicitud.
 
 ## Grupo
-### Integrantes
 * 53112 - Costantini, Jeremías
 * 52911 - Messina, Tiziano Leonel
 
+## Links
+* [Propuesta del TP](proposal.md)
+* [Documentación de entrega](docs/README.md) — instalación, minutas, tracking, API, tests, deploy
+* App: https://agroapp.dev · API: https://api.agroapp.dev
 
-## Tema
-### Descripción
-*El sistema tiene como objetivo conectar a productores agropecuarios con contratistas que ofrecen servicios rurales como siembra, cosecha, fumigación, entre otros trabajos vinculados al campo. Los usuarios podrán registrarse en la plataforma bajo el rol de Productor o Contratista, accediendo a funcionalidades específicas según su perfil. La aplicación permitirá la publicación de servicios por parte de los contratistas, y la búsqueda y contratación de servicios por parte de los productores, priorizando la proximidad geográfica y el tipo de tarea requerida.*
+## Stack
+Monorepo **pnpm + Turborepo**. Backend **Node + Express 5 + TypeScript + Prisma + MySQL** (`apps/server`). Frontend **React 18 + Vite + Tailwind** (`apps/web`). Schema y migraciones en `packages/database`.
 
-### Modelo
-https://drive.google.com/file/d/151WW7jMJsbHZqQe7cZ24ymqqbFD3XNOm/view?usp=sharing
+## Instalación y ejecución local
 
+### Requisitos
+* Node.js 20 o superior
+* pnpm 8 o superior (`npm i -g pnpm`)
+* Docker (para la base MySQL) o un MySQL 8 accesible
 
-## Alcance Funcional 
+### 1. Base de datos
+```bash
+docker run -d --name agroapp-mysql -p 3307:3306 \
+  -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=agro-dsw \
+  -e MYSQL_USER=agro-dsw -e MYSQL_PASSWORD=agro-dsw \
+  percona/percona-server:8.0
+```
 
-### Alcance Mínimo
+### 2. Variables de entorno
+Copiar cada `.env.example` a `.env` y completar:
+```bash
+cp packages/database/.env.example packages/database/.env
+cp apps/server/.env.example apps/server/.env
+cp apps/web/.env.example apps/web/.env
+```
 
+### 3. Instalar, migrar y cargar datos demo
+```bash
+pnpm install
+pnpm db:migrate     # crea las tablas
+pnpm db:seed        # roles, provincias, categorías, insumos y usuarios demo
+```
 
-Regularidad:
-|Req|Detalle|
+### 4. Levantar
+```bash
+pnpm dev            # backend en http://localhost:3000, frontend en http://localhost:5173
+```
+
+### 5. Tests
+```bash
+pnpm test
+```
+
+## Usuarios demo (creados por el seed)
+| Rol | Email | Contraseña |
+|:-|:-|:-|
+| ADMIN | admin@agroapp.dev | Admin123! |
+| CLIENTE | cliente@agroapp.dev | Cliente123! |
+| PRESTAMISTA | prestamista@agroapp.dev | Prestamista123! |
+
+## Scripts útiles
+| Comando | Qué hace |
 |:-|:-|
-|CRUD simple|1. CRUD Categoria Servicio<br>2. CRUD Localidad<br>3. CRUD Usuario|
-|CRUD dependiente|1. CRUD Servicio {depende de} CRUD Categoria Servicio<br>2. CRUD Solicitud {depende de} CRUD Servicio, Cliente, Prestamista<br>3. CRUD Campo {depende de} CRUD Cliente|
-|Listado<br>+<br>detalle| 1. Listado de servicios filtrado por categoria de servicio, muestra idServicio, nombreServicio, prestamista => detalle CRUD Servicios<br> 2. Listado de prestamistas filtrado por aproximacion geográfica, muestra idPrestamista, domicilioPrestamista, nombre categoria servicio y precio => detalle muestra prestamistas con domicilio cercano al domicilio cliente<br> 3. Listado de campos del cliente muestra idCampo, coordenas y cantHectareas => detalle CRUD Campo<br> 4. Listado de solicitudes(historial) muestra idSolicitud, idCampo, categoria servicio, servicio, prestamista, estado, fecha inicio, fecha fin, cantidadHoras(d), insumos, cantidadInsumos, preciototal(d) => detalle muestra datos completo de las solicitudes|
-|CUU/Epic|1. Publicar un servicio<br>2. Solicitar un servicio publicado|
-
-
-Adicionales para Aprobación
-|Req|Detalle|
-|:-|:-|
-|CRUD |1. CRUD Categoria Servicio<br>2. CRUD Servicio<br>3. CRUD Localidad<br>4. CRUD Provincia<br>5. CRUD Solicitud<br>6. CRUD Prestamista<br>7. CRUD Cliente<br>8. CRUD Campo|
-|CUU/Epic|1. Publicar un servicio<br>2. Solicitar un servicio publicado<br>3. Cambiar estado de solicitud (pendiente, aceptada, rechazada, completada)|
-
-
-### Alcance Adicional Voluntario
-
-*Nota*: El Alcance Adicional Voluntario es opcional, pero ayuda a que la funcionalidad del sistema esté completa y será considerado en la nota en función de su complejidad y esfuerzo.
-
-|Req|Detalle|
-|:-|:-|
-|CUU/Epic|1. Valoracion servicio<br>2. Cancelación de servicio|
-|Otros|1. Envío de actualizacion de estado de solicitud por email|
+| `pnpm dev` | server + web en modo desarrollo |
+| `pnpm build` | build de todos los paquetes |
+| `pnpm test` | tests de todos los paquetes |
+| `pnpm db:migrate` | `prisma migrate dev` (desarrollo) |
+| `pnpm db:deploy` | `prisma migrate deploy` (producción) |
+| `pnpm db:seed` | carga datos iniciales (idempotente) |
