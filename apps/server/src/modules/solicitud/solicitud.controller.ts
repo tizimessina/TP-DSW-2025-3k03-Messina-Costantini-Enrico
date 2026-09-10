@@ -1,26 +1,17 @@
-import { Request, Response, NextFunction } from "express";
+import type { NextFunction, Request, Response } from "express";
 import { solicitudService } from "./solicitud.service.js";
 import {
   CreateSolicitudInputSchema,
+  SolicitudIdSchema,
+  SolicitudQuerySchema,
   UpdateSolicitudEstadoSchema,
-  SolicitudEstadoEnum,
-  SolicitudEstado,
 } from "./solicitud.schema.js";
 
 export const solicitudController = {
   async list(req: Request, res: Response, next: NextFunction) {
     try {
-      let estado: SolicitudEstado | undefined;
-
-      if (req.query.estado) {
-        const value = String(req.query.estado);
-        if (SolicitudEstadoEnum.options.includes(value as SolicitudEstado)) {
-          estado = value as SolicitudEstado;
-        }
-      }
-
-      const items = await solicitudService.list(estado);
-      res.json(items);
+      const query = SolicitudQuerySchema.parse(req.query);
+      res.json(await solicitudService.list(req.user!, query));
     } catch (err) {
       next(err);
     }
@@ -28,12 +19,8 @@ export const solicitudController = {
 
   async getById(req: Request, res: Response, next: NextFunction) {
     try {
-      const id = Number(req.params.id);
-      const item = await solicitudService.getById(id);
-      if (!item) {
-        return res.status(404).json({ message: "Solicitud no encontrada" });
-      }
-      res.json(item);
+      const { id } = SolicitudIdSchema.parse(req.params);
+      res.json(await solicitudService.getById(req.user!, id));
     } catch (err) {
       next(err);
     }
@@ -42,8 +29,7 @@ export const solicitudController = {
   async create(req: Request, res: Response, next: NextFunction) {
     try {
       const parsed = CreateSolicitudInputSchema.parse(req.body);
-      const created = await solicitudService.create(parsed);
-      res.status(201).json(created);
+      res.status(201).json(await solicitudService.create(req.user!, parsed));
     } catch (err) {
       next(err);
     }
@@ -51,10 +37,9 @@ export const solicitudController = {
 
   async updateEstado(req: Request, res: Response, next: NextFunction) {
     try {
-      const id = Number(req.params.id);
+      const { id } = SolicitudIdSchema.parse(req.params);
       const parsed = UpdateSolicitudEstadoSchema.parse(req.body);
-      const updated = await solicitudService.updateEstado(id, parsed);
-      res.json(updated);
+      res.json(await solicitudService.updateEstado(req.user!, id, parsed));
     } catch (err) {
       next(err);
     }
@@ -62,12 +47,11 @@ export const solicitudController = {
 
   async delete(req: Request, res: Response, next: NextFunction) {
     try {
-      const id = Number(req.params.id);
-      await solicitudService.delete(id);
+      const { id } = SolicitudIdSchema.parse(req.params);
+      await solicitudService.delete(req.user!, id);
       res.status(204).send();
     } catch (err) {
       next(err);
     }
   },
 };
-

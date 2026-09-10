@@ -19,12 +19,18 @@ import solicitudRouter from "../../modules/solicitud/solicitud.router.js";
 
 // Middlewares
 import { errorMiddleware } from '../errors/errorMiddleware.js';
+import { env } from '../config/env.js';
 
 export function createApp() {
   const app = express();
-  app.use(cors());
+  app.use(
+    cors({
+      origin: env.CORS_ORIGIN.includes('*') ? true : env.CORS_ORIGIN,
+    }),
+  );
   app.use(express.json());
-  app.use(morgan('dev'));
+  if (env.NODE_ENV !== 'test') app.use(morgan('dev'));
+  app.get('/health', (_req, res) => res.json({ ok: true }));
   app.use('/provincias', provinciaRouter);
   app.use('/localidades', localidadRouter);
   app.use('/usuarios', usuarioRouter);

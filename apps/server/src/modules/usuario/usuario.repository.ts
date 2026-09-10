@@ -32,6 +32,15 @@ export const usuarioRepo = {
       },
     }),
 
+  getByEmail: (email: string) =>
+    prisma.users.findUnique({
+      where: { email },
+      include: {
+        localidad: true,
+        user_roles: { include: { roles: true } },
+      },
+    }),
+
   create: (data: {
     email: string;
     password_hash: string;

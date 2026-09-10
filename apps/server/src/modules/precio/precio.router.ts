@@ -1,14 +1,14 @@
 import { Router } from "express";
+import { requireAuth, requireRole } from "../../core/auth/middleware.js";
 import { PrecioController } from "./precio.controller.js";
 
 export const precioRouter = Router();
+const prestamistaOrAdmin = [requireAuth, requireRole("PRESTAMISTA", "ADMIN")];
 
 precioRouter.get("/", PrecioController.list);
-
+precioRouter.get("/servicio/:id_servicio/vigente", PrecioController.vigente);
 precioRouter.get("/servicio/:id_servicio", PrecioController.listByServicio);
-
-// CRUD por ID
 precioRouter.get("/:id", PrecioController.get);
-precioRouter.post("/", PrecioController.create);
-precioRouter.put("/:id", PrecioController.update);
-precioRouter.delete("/:id", PrecioController.remove);
+precioRouter.post("/", prestamistaOrAdmin, PrecioController.create);
+precioRouter.put("/:id", prestamistaOrAdmin, PrecioController.update);
+precioRouter.delete("/:id", prestamistaOrAdmin, PrecioController.remove);

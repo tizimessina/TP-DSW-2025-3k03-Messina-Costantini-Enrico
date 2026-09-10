@@ -5,7 +5,8 @@ import type {
 } from "./prestamista.schema.js";
 
 export const prestamistaService = {
-  list: () => prestamistaRepo.list(),
+  list: (filters?: { id_localidad?: bigint; id_provincia?: bigint; q?: string }) =>
+    prestamistaRepo.list(filters),
 
   get: async (id: bigint) => {
     const p = await prestamistaRepo.getById(id);

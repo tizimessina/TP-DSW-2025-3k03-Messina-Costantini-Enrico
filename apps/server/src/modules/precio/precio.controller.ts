@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 import {
   PrecioCreateSchema,
   PrecioIdSchema,
@@ -7,59 +7,75 @@ import {
 import { precioService } from "./precio.service.js";
 
 export const PrecioController = {
-  // ✅ NUEVO: lista precios por id_servicio usando query param
   // GET /precios?id_servicio=123
-  list: async (req: Request, res: Response) => {
-    const { id_servicio } = req.query;
-
-    // si no viene id_servicio → devolvemos lista vacía (el front lo maneja)
-    if (!id_servicio) {
-      return res.json([]);
-    }
-
-    let servicioId: bigint;
+  list: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      servicioId = BigInt(id_servicio as string);
-    } catch {
-      return res.status(400).json({ message: "id_servicio inválido" });
+      const { id_servicio } = req.query;
+      if (!id_servicio) return res.json([]);
+      let servicioId: bigint;
+      try {
+        servicioId = BigInt(String(id_servicio));
+      } catch {
+        return next({ status: 400, code: "VALIDATION_ERROR", message: "id_servicio inválido" });
+      }
+      res.json(await precioService.listByServicio(servicioId));
+    } catch (e) {
+      next(e);
     }
-
-    const data = await precioService.listByServicio(servicioId);
-    return res.json(data);
   },
 
-  listByServicio: async (req: Request, res: Response) => {
-    const id_servicio = BigInt(req.params.id_servicio);
-    const data = await precioService.listByServicio(id_servicio);
-    return res.json(data);
+  // GET /precios/servicio/:id_servicio
+  listByServicio: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(await precioService.listByServicio(BigInt(req.params.id_servicio as string)));
+    } catch (e) {
+      next(e);
+    }
   },
 
-  // GET /precios/:id
-  get: async (req: Request, res: Response) => {
-    const { id } = PrecioIdSchema.parse(req.params); // id ya es bigint por z.coerce.bigint
-    const data = await precioService.getById(id);
-    return res.json(data);
+  // GET /precios/servicio/:id_servicio/vigente
+  vigente: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(await precioService.getVigente(BigInt(req.params.id_servicio as string)));
+    } catch (e) {
+      next(e);
+    }
   },
 
-  // POST /precios
-  create: async (req: Request, res: Response) => {
-    const dto = PrecioCreateSchema.parse(req.body);
-    const data = await precioService.create(dto);
-    return res.status(201).json(data);
+  get: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = PrecioIdSchema.parse(req.params);
+      res.json(await precioService.getById(id));
+    } catch (e) {
+      next(e);
+    }
   },
 
-  // PUT /precios/:id
-  update: async (req: Request, res: Response) => {
-    const { id } = PrecioIdSchema.parse(req.params);
-    const dto = PrecioUpdateSchema.parse(req.body);
-    const data = await precioService.update(id, dto);
-    return res.json(data);
+  create: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const dto = PrecioCreateSchema.parse(req.body);
+      res.status(201).json(await precioService.create(req.user!, dto));
+    } catch (e) {
+      next(e);
+    }
   },
 
-  // DELETE /precios/:id
-  remove: async (req: Request, res: Response) => {
-    const { id } = PrecioIdSchema.parse(req.params);
-    const data = await precioService.remove(id);
-    return res.json(data);
+  update: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = PrecioIdSchema.parse(req.params);
+      const dto = PrecioUpdateSchema.parse(req.body);
+      res.json(await precioService.update(req.user!, id, dto));
+    } catch (e) {
+      next(e);
+    }
+  },
+
+  remove: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = PrecioIdSchema.parse(req.params);
+      res.json(await precioService.remove(req.user!, id));
+    } catch (e) {
+      next(e);
+    }
   },
 };
