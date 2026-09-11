@@ -43,3 +43,10 @@ export const isoToDateInput = (iso: string | null | undefined) => (iso ? iso.sli
 export const todayInput = () => new Date().toISOString().slice(0, 10);
 
 export const pluralize = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/** "2026-04" → "abr 26". Períodos del gráfico del panel. */
+export const mesCorto = (periodo: string) => {
+  const [anio, mes] = periodo.split("-");
+  const d = new Date(Date.UTC(Number(anio), Number(mes) - 1, 1));
+  return `${d.toLocaleDateString("es-AR", { month: "short", timeZone: "UTC" }).replace(".", "")} ${anio.slice(2)}`;
+};

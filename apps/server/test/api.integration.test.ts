@@ -233,6 +233,49 @@ describe("caso de uso completo", () => {
     expect((await request(app).get("/notificaciones")).status).toBe(401);
   });
 
+  it("la ficha del campo resume trabajos, hectáreas e inversión solo para el dueño", async () => {
+    const delDuenio = await request(app).get(`/campos/${campoId}`).set(auth(productor));
+    expect(delDuenio.status).toBe(200);
+    expect(delDuenio.body.resumen.trabajos_completados).toBeGreaterThanOrEqual(1);
+    expect(delDuenio.body.resumen.total_invertido).toBeGreaterThan(0);
+    expect(delDuenio.body.resumen.ultimo_trabajo).not.toBeNull();
+
+    // El contratista puede ver el campo, pero no cuánto gastó el productor en total.
+    const delContratista = await request(app).get(`/campos/${campoId}`).set(auth(contratista));
+    expect(delContratista.status).toBe(200);
+    expect(delContratista.body.resumen).toBeNull();
+  });
+
+  it("el precio de referencia se calcula con los servicios comparables del sistema", async () => {
+    const res = await request(app).get(`/servicios/${servicioId}/referencia-precio`);
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ id_servicio: servicioId, alcance: expect.stringMatching(/provincia|pais/) });
+    if (res.body.mercado) {
+      expect(res.body.mercado.cantidad).toBeGreaterThan(0);
+      expect(res.body.mercado.minimo).toBeLessThanOrEqual(res.body.mercado.maximo);
+    }
+  });
+
+  it("solo un administrador otorga o quita la insignia de verificado", async () => {
+    const idContratista = (await request(app).get(`/servicios/${servicioId}`)).body.id_contratista;
+
+    expect((await request(app).put(`/contratistas/${idContratista}/verificado`).send({ verificado: true })).status).toBe(401);
+    expect((await request(app).put(`/contratistas/${idContratista}/verificado`).set(auth(productor)).send({ verificado: true })).status).toBe(403);
+
+    const ok = await request(app).put(`/contratistas/${idContratista}/verificado`).set(auth(admin)).send({ verificado: true });
+    expect(ok.status).toBe(200);
+    expect(ok.body.verificado).toBe(true);
+    expect((await request(app).get(`/contratistas/${idContratista}`)).body.verificado).toBe(true);
+
+    const quitada = await request(app).put(`/contratistas/${idContratista}/verificado`).set(auth(admin)).send({ verificado: false });
+    expect(quitada.body.verificado).toBe(false);
+    expect(quitada.body.verificado_at).toBeNull();
+
+    // Se deja como estaba: el seed marca verificados a algunos contratistas y los
+    // tests no deberían degradar los datos de demostración.
+    await request(app).put(`/contratistas/${idContratista}/verificado`).set(auth(admin)).send({ verificado: true });
+  });
+
   it("el motivo de la cancelación queda en el historial", async () => {
     const s = await request(app).post("/solicitudes").set(auth(productor)).send({ id_servicio: servicioId, id_campo: campoId, hectareas_trabajadas: 1 });
     created.solicitudes.push(s.body.id_solicitud);

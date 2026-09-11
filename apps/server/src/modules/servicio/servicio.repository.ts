@@ -13,6 +13,20 @@ const listInclude = () => ({
 });
 
 export const servicioRepo = {
+  /**
+   * Servicios activos de una categoría con su precio vigente, para poder comparar.
+   * Se puede acotar a una provincia mirando la localidad del contratista.
+   */
+  comparablesDeCategoria: (id_categoria: bigint, id_provincia?: bigint) =>
+    prisma.servicio.findMany({
+      where: {
+        activo: true,
+        id_categoria,
+        ...(id_provincia ? { contratista_profile: { users: { localidad: { id_provincia } } } } : {}),
+      },
+      select: { id_servicio: true, precio: precioVigente() },
+    }),
+
   list: async (where: Prisma.servicioWhereInput, skip: number, take: number) => {
     const [items, total] = await Promise.all([
       prisma.servicio.findMany({ where, skip, take, orderBy: [{ nombre: 'asc' }], include: listInclude() }),

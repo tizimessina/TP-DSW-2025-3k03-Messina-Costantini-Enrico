@@ -86,7 +86,20 @@ export interface ContratistaResumen {
   id_user: number;
   descripcion?: string | null;
   anios_experiencia?: number | null;
+  /** Insignia otorgada por la administración tras revisar identidad y datos fiscales. */
+  verificado?: boolean;
+  verificado_at?: string | null;
   users: UsuarioPublico;
+}
+
+/** Precio de mercado de la categoría, calculado con los precios vigentes del sistema. */
+export interface ReferenciaPrecio {
+  id_servicio: number;
+  categoria: string;
+  alcance: "provincia" | "pais";
+  propio: number | null;
+  mercado: { promedio: number; minimo: number; maximo: number; cantidad: number } | null;
+  desvio_pct: number | null;
 }
 
 export interface Servicio {
@@ -126,6 +139,14 @@ export interface Campo {
   _count?: { solicitud: number };
   /** Solo en el detalle */
   solicitud?: SolicitudResumen[];
+  /** Ficha histórica: solo para el dueño del campo y la administración. */
+  resumen?: {
+    trabajos_completados: number;
+    hectareas_trabajadas: number;
+    total_invertido: number;
+    por_estado: Partial<Record<SolicitudEstado, number>>;
+    ultimo_trabajo: { id_solicitud: number; fecha_fin: string | null; servicio: { nombre: string } } | null;
+  } | null;
 }
 
 export type SolicitudEstado = "pendiente" | "aceptada" | "rechazada" | "cancelada" | "completada";
@@ -227,6 +248,8 @@ export interface Valoracion {
 
 export interface Resumen {
   solicitudes: Partial<Record<SolicitudEstado, { cantidad: number; total: Decimal }>>;
+  /** Últimos seis meses de trabajos completados, para el gráfico del panel. */
+  serie: { periodo: string; cantidad: number; total: number }[];
   proximas: { id_solicitud: number; fecha_inicio: string | null; hectareas_trabajadas: Decimal; servicio: { id_servicio: number; nombre: string }; campo: { id_campo: number; nombre: string } }[];
   campos: number | null;
   servicios: number | null;

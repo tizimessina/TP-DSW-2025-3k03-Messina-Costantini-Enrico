@@ -3,8 +3,8 @@ import { Link } from "react-router-dom";
 import { auth as authApi, solicitudes as solicitudesApi } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import { AnimatedPage } from "../components/layout/AppShell";
-import { Alert, Card, EmptyState, EstadoBadge, LinkButton, PageHeader, Skeleton, Stat, Stars } from "../components/ui";
-import { fmtDate, fmtHa, fmtMoney, fullName } from "../lib/format";
+import { Alert, BarChart, Card, EmptyState, EstadoBadge, LinkButton, PageHeader, Skeleton, Stat, Stars } from "../components/ui";
+import { fmtDate, fmtHa, fmtMoney, fullName, mesCorto } from "../lib/format";
 import { useQuery } from "../lib/useQuery";
 
 export default function DashboardPage() {
@@ -44,6 +44,26 @@ export default function DashboardPage() {
           </>
         )}
       </div>
+
+      <Card
+        className="mt-6"
+        title={isProductor ? "Lo que invertiste por mes" : isContratista ? "Lo que facturaste por mes" : "Trabajos completados por mes"}
+        subtitle="Últimos seis meses, sobre trabajos completados"
+      >
+        {resumen.loading ? (
+          <Skeleton className="h-40" />
+        ) : (
+          <BarChart
+            data={(r?.serie ?? []).map((p) => ({
+              label: mesCorto(p.periodo),
+              value: p.total,
+              hint: `${mesCorto(p.periodo)}: ${fmtMoney(p.total)} en ${p.cantidad} ${p.cantidad === 1 ? "trabajo" : "trabajos"}`,
+            }))}
+            formatValue={fmtMoney}
+            emptyLabel="Todavía no hay trabajos completados en los últimos seis meses."
+          />
+        )}
+      </Card>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_380px]">
         <Card title="Últimas solicitudes" actions={<Link to="/solicitudes" className="inline-flex items-center gap-1 text-sm font-semibold text-brand-700 hover:underline dark:text-brand-300">Ver todas <ArrowRight className="h-4 w-4" /></Link>}>

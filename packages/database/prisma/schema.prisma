@@ -86,6 +86,9 @@ model contratista_profile {
   id_user           BigInt      @id @db.UnsignedBigInt
   descripcion       String?     @db.VarChar(600)
   anios_experiencia Int?        @db.UnsignedSmallInt
+  /// Lo marca un administrador tras revisar identidad y datos fiscales.
+  verificado        Boolean     @default(false)
+  verificado_at     DateTime?   @db.DateTime(3)
   users             users       @relation(fields: [id_user], references: [id_user], onDelete: Cascade, map: "fk_contratista_user")
   servicio          servicio[]
   solicitud         solicitud[]

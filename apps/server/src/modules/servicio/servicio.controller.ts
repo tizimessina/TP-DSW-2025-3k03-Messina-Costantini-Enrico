@@ -31,4 +31,10 @@ export const ServicioController = {
       res.json(await servicioService.desactivar(req.user!, id));
     } catch (e) { next(e); }
   },
+  referenciaPrecio: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = ServicioIdSchema.parse(req.params);
+      res.json(await servicioService.referenciaPrecio(id));
+    } catch (e) { next(e); }
+  },
 };

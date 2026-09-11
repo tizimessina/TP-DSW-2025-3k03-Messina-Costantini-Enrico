@@ -60,6 +60,14 @@ export const contratistaRepo = {
     return out;
   },
 
+  /** Marca o desmarca la insignia; la fecha queda registrada para poder auditarla. */
+  setVerificado: (id_user: bigint, verificado: boolean) =>
+    prisma.contratista_profile.update({
+      where: { id_user },
+      data: { verificado, verificado_at: verificado ? new Date() : null },
+      include: { users: { select: publicUserSelect } },
+    }),
+
   campoUbicacion: (id_campo: bigint) =>
     prisma.campo.findUnique({ where: { id_campo }, select: { id_localidad: true, localidad: { select: { id_provincia: true } } } }),
 };

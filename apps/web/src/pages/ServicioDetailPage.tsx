@@ -1,11 +1,11 @@
-import { ArrowLeft, Award, CalendarDays, Info, MapPin, Tractor } from "lucide-react";
+import { ArrowLeft, Award, CalendarDays, Info, MapPin, Tractor, TrendingDown, TrendingUp } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { servicios as serviciosApi, valoraciones as valoracionesApi } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import { AnimatedPage } from "../components/layout/AppShell";
 import { SolicitarWizard } from "../components/SolicitarWizard";
-import { Alert, Avatar, Button, Card, DetailItem, LinkButton, PageSpinner, Stars, Table, Td, Th } from "../components/ui";
+import { Alert, Avatar, Button, Card, DetailItem, LinkButton, PageSpinner, Stars, Table, Td, Th, VerificadoBadge } from "../components/ui";
 import { fmtDate, fmtMoney, fmtMoneyExact, fullName, ubicacion } from "../lib/format";
 import { useQuery } from "../lib/useQuery";
 
@@ -14,6 +14,7 @@ export default function ServicioDetailPage() {
   const { user, isProductor } = useAuth();
   const servicio = useQuery(() => serviciosApi.get(Number(id)), [id]);
   const valoraciones = useQuery(() => valoracionesApi.list({ id_servicio: Number(id) }), [id]);
+  const referencia = useQuery(() => serviciosApi.referenciaPrecio(Number(id)), [id]);
   const [wizardOpen, setWizardOpen] = useState(false);
 
   if (servicio.loading) return <PageSpinner />;
@@ -41,6 +42,27 @@ export default function ServicioDetailPage() {
               <DetailItem label="Publicado">{fmtDate(s.created_at)}</DetailItem>
             </dl>
           </div>
+
+          {referencia.data?.mercado && (
+            <div className="surface p-5">
+              <p className="text-xs font-semibold uppercase tracking-wider text-stone-500">Precio de mercado</p>
+              <p className="mt-2 text-sm text-stone-600 dark:text-stone-300">
+                En {referencia.data.alcance === "provincia" ? "la provincia" : "el país"}, {referencia.data.categoria.toLowerCase()} promedia{" "}
+                <strong className="text-stone-900 dark:text-white">{fmtMoney(referencia.data.mercado.promedio)}/ha</strong>, entre{" "}
+                {fmtMoney(referencia.data.mercado.minimo)} y {fmtMoney(referencia.data.mercado.maximo)}.
+              </p>
+              <p className="mt-1 text-xs text-stone-500">
+                Calculado con los precios vigentes de {referencia.data.mercado.cantidad}{" "}
+                {referencia.data.mercado.cantidad === 1 ? "servicio comparable" : "servicios comparables"} publicados en AgroApp.
+              </p>
+              {esPropio && referencia.data.desvio_pct !== null && (
+                <p className={`mt-3 flex items-center gap-1.5 text-sm font-semibold ${referencia.data.desvio_pct > 0 ? "text-harvest-700 dark:text-harvest-300" : "text-brand-700 dark:text-brand-300"}`}>
+                  {referencia.data.desvio_pct > 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                  Tu precio está {Math.abs(referencia.data.desvio_pct)}% {referencia.data.desvio_pct > 0 ? "por encima" : "por debajo"} del promedio.
+                </p>
+              )}
+            </div>
+          )}
 
           {s.precios && s.precios.length > 0 && (
             <Card title="Historial de precios" subtitle="El vigente es el de fecha más reciente que no sea futura.">
@@ -82,7 +104,10 @@ export default function ServicioDetailPage() {
             <Link to={`/contratistas/${s.id_contratista}`} className="mt-3 flex items-center gap-3 rounded-xl p-2 transition hover:bg-stone-100 dark:hover:bg-stone-800">
               <Avatar name={fullName(c?.users)} />
               <span className="min-w-0">
-                <span className="block truncate font-bold">{fullName(c?.users)}</span>
+                <span className="flex items-center gap-1.5">
+                  <span className="truncate font-bold">{fullName(c?.users)}</span>
+                  <VerificadoBadge verificado={c?.verificado} size="sm" className="shrink-0" />
+                </span>
                 <span className="flex items-center gap-1 text-xs text-stone-500"><MapPin className="h-3 w-3" />{ubicacion(c?.users.localidad)}</span>
               </span>
             </Link>

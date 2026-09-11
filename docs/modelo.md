@@ -233,6 +233,12 @@ stateDiagram-v2
 - Cada usuario solo accede a los suyos. Marcar como leído es idempotente y acotado al dueño: un aviso ajeno o ya leído responde igual, para no revelar su existencia.
 - El frontend consulta cada minuto mientras la pestaña está visible.
 
+### Confianza y precios de referencia
+- `contratista_profile.verificado` lo otorga o lo quita un administrador tras revisar identidad y datos fiscales, y queda la fecha registrada. La insignia se muestra en el listado, el perfil y el detalle del servicio. No verificado no muestra nada: la ausencia no es una acusación.
+- `GET /servicios/:id/referencia-precio` calcula promedio, mínimo y máximo de los precios vigentes de servicios comparables de la misma categoría, usando solo datos del propio sistema. Empieza por la provincia del contratista y amplía al país si no hay con qué comparar. Al dueño del servicio se le muestra además cuánto se aparta su precio del promedio.
+- El detalle del campo incluye una ficha histórica con trabajos completados, hectáreas acumuladas e inversión total. Solo la ve el dueño del campo y la administración: a un contratista no le corresponde saber cuánto gastó el productor.
+- `GET /auth/me/resumen` devuelve además una serie de los últimos seis meses de trabajos completados, que alimenta el gráfico del panel.
+
 ### Cercanía
 - `GET /contratistas?id_campo=` filtra por la localidad del campo; si no hay contratistas ahí, amplía a la provincia e informa el alcance aplicado.
 

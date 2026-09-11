@@ -1,11 +1,11 @@
-import { ArrowLeft, ExternalLink, Pencil, Sprout } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ExternalLink, Pencil, Ruler, Sprout, Wallet } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { campos as camposApi } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import { AnimatedPage } from "../components/layout/AppShell";
 import { MapView } from "../components/MapView";
-import { Alert, Button, Card, DetailItem, EmptyState, EstadoBadge, LinkButton, PageHeader, PageSpinner, Table, Td, Th } from "../components/ui";
+import { Alert, Button, Card, DetailItem, EmptyState, EstadoBadge, LinkButton, PageHeader, PageSpinner, Stat, Table, Td, Th } from "../components/ui";
 import { fmtDate, fmtHa, fmtMoney, fullName, ubicacion } from "../lib/format";
 import { useQuery } from "../lib/useQuery";
 import { CampoFormDialog } from "./CamposPage";
@@ -37,6 +37,14 @@ export default function CampoDetailPage() {
           ) : undefined
         }
       />
+
+      {c.resumen && (
+        <div className="mb-6 grid gap-4 sm:grid-cols-3">
+          <Stat label="Trabajos completados" value={c.resumen.trabajos_completados} icon={<CheckCircle2 className="h-5 w-5" />} hint={c.resumen.ultimo_trabajo ? `último: ${c.resumen.ultimo_trabajo.servicio.nombre}` : undefined} />
+          <Stat label="Hectáreas trabajadas" value={fmtHa(c.resumen.hectareas_trabajadas)} icon={<Ruler className="h-5 w-5" />} tone="sky" hint="acumuladas" />
+          <Stat label="Invertido en el campo" value={fmtMoney(c.resumen.total_invertido)} icon={<Wallet className="h-5 w-5" />} tone="amber" hint="trabajos completados" />
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <div className="space-y-6">

@@ -1,7 +1,7 @@
 import { forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Loader2, Star } from "lucide-react";
+import { BadgeCheck, Loader2, Star } from "lucide-react";
 import { cn } from "../../lib/cn";
 import type { SolicitudEstado } from "../../api/types";
 import { ESTADO_LABELS } from "../../api/types";
@@ -196,6 +196,27 @@ export function Badge({ children, tone = "neutral", className }: { children: Rea
   return <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold", tones[tone], className)}>{children}</span>;
 }
 
+/**
+ * Insignia de contratista verificado por la administración. No se muestra nada
+ * cuando no está verificado: la ausencia no es una acusación.
+ */
+export function VerificadoBadge({ verificado, className, size = "md" }: { verificado?: boolean; className?: string; size?: "sm" | "md" }) {
+  if (!verificado) return null;
+  return (
+    <span
+      title="Identidad y datos fiscales verificados por AgroApp"
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full bg-sky-100 font-semibold text-sky-800 ring-1 ring-sky-300 dark:bg-sky-900/40 dark:text-sky-200 dark:ring-sky-800",
+        size === "sm" ? "px-1.5 py-0.5 text-[10px]" : "px-2.5 py-0.5 text-xs",
+        className,
+      )}
+    >
+      <BadgeCheck className={size === "sm" ? "h-3 w-3" : "h-3.5 w-3.5"} aria-hidden />
+      Verificado
+    </span>
+  );
+}
+
 export function RoleBadge({ role }: { role: string }) {
   const tone = role === "ADMIN" ? "purple" : role === "PRODUCTOR" ? "brand" : "sky";
   const label = role === "ADMIN" ? "Admin" : role === "PRODUCTOR" ? "Productor" : "Contratista";
@@ -290,3 +311,5 @@ export function Avatar({ name, className, size = "md" }: { name: string; classNa
   const sz = size === "lg" ? "h-14 w-14 text-lg" : size === "sm" ? "h-8 w-8 text-xs" : "h-10 w-10 text-sm";
   return <span className={cn("inline-flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-700 font-bold text-white", sz, className)}>{initials || "?"}</span>;
 }
+
+export { BarChart, type Punto } from "./Charts";
