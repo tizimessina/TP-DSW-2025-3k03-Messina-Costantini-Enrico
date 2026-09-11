@@ -10,13 +10,16 @@
 
 ## Credenciales de demo
 
-| Rol | Email | Contraseña |
-|:-|:-|:-|
-| ADMIN | admin@agroapp.dev | Admin123! |
-| CLIENTE | cliente@agroapp.dev | Cliente123! |
-| PRESTAMISTA | prestamista@agroapp.dev | Prestamista123! |
+| Rol | Email | Contraseña | Quién es |
+|:-|:-|:-|:-|
+| ADMIN | admin@agroapp.dev | Admin123! | Ana Administradora |
+| PRODUCTOR | productor@agroapp.dev | Productor123! | Carlos Ferreyra (Pergamino), 2 campos |
+| PRODUCTOR | productora2@agroapp.dev | Productor123! | Lucía Bianchi (Rafaela), 1 campo |
+| CONTRATISTA | contratista@agroapp.dev | Contratista123! | Pedro Molina (Venado Tuerto), siembra y cosecha |
+| CONTRATISTA | contratista2@agroapp.dev | Contratista123! | Marta Giménez (Río Cuarto), pulverización y fertilización |
+| CONTRATISTA | contratista3@agroapp.dev | Contratista123! | Julián Sosa (Pergamino), laboreo y rollos |
 
-Las crea el seed (`packages/database/prisma/seed.ts`). Si se borran, volver a correr el seed contra producción (ver abajo).
+Las crea el seed (`packages/database/prisma/seed.ts`), junto con solicitudes en los cinco estados y dos valoraciones.
 
 ## 1. Base de datos (Aiven)
 
@@ -34,9 +37,21 @@ En PowerShell:
 $env:DATABASE_URL="mysql://avnadmin:...?ssl-mode=REQUIRED"; pnpm db:deploy; pnpm db:seed; Remove-Item Env:DATABASE_URL
 ```
 
-Estado: migraciones `20251013205137_agro_dsw` y `20260902011929_init_agro_schema` aplicadas y seed cargado el 2026-09-10.
+### Recrear la base desde cero
 
-> Importante: `packages/database/.env` lo lee Prisma CLI **y** el backend en desarrollo. Dejarlo apuntando a la base local de Docker; la URL de Aiven va solo en Render.
+El rediseño de septiembre de 2026 reemplazó las migraciones anteriores por una única migración `0001_init`. Una base creada con las migraciones viejas no se puede migrar hacia adelante: hay que vaciarla y volver a aplicar. Como no hay datos reales, es seguro. Con el cliente `mysql` (o desde la consola de Aiven):
+
+```sql
+SET FOREIGN_KEY_CHECKS = 0;
+DROP TABLE IF EXISTS _prisma_migrations, admin_profile, campo, categoria, cliente_profile, insumo, localidad, precio,
+  prestamista_profile, provincia, roles, servicio, solicitud, solicitud_insumo, user_roles, users, valoracion,
+  productor_profile, contratista_profile;
+SET FOREIGN_KEY_CHECKS = 1;
+```
+
+Después, `pnpm db:deploy` y `pnpm db:seed` con la URL de Aiven como arriba.
+
+> `packages/database/.env` lo lee Prisma CLI **y** el backend en desarrollo (si no existe `apps/server/.env`). Dejarlo apuntando a la base local de Docker; la URL de Aiven va solo en Render y en los comandos puntuales de arriba.
 
 ## 2. Backend (Render)
 
@@ -63,11 +78,7 @@ Variables de entorno:
 | `JWT_EXPIRES_IN` | `8h` |
 | `CORS_ORIGIN` | `https://agroapp.dev,https://www.agroapp.dev` |
 
-`PORT` la define Render; el backend la lee de `process.env.PORT`.
-
-Dominio: **Settings → Custom domains → Add** `api.agroapp.dev`. Render muestra el CNAME a configurar (ver DNS).
-
-Verificación: `https://api.agroapp.dev/health` responde `{"ok":true}` y `https://api.agroapp.dev/servicios` devuelve los servicios del seed.
+`PORT` la define Render. Dominio: **Settings → Custom domains → Add** `api.agroapp.dev`.
 
 > Plan free: el servicio se duerme tras 15 minutos sin tráfico y la primera request tarda ~30 s. Abrir `/health` antes de la defensa.
 
@@ -77,15 +88,10 @@ Verificación: `https://api.agroapp.dev/health` responde `{"ok":true}` y `https:
 |:-|:-|
 | Framework preset | Vite |
 | Root directory | `apps/web` |
-| Build command | `pnpm build` (por defecto) |
+| Build command | `pnpm build` |
 | Output directory | `dist` |
-| Install command | `pnpm install --frozen-lockfile` (Vercel detecta pnpm por `packageManager` en el root) |
 
-Variable de entorno (Production y Preview): `VITE_API_URL=https://api.agroapp.dev`.
-
-`apps/web/vercel.json` ya tiene el rewrite `/(.*) → /` para que React Router maneje las rutas al refrescar.
-
-Dominios: **Settings → Domains** agregar `agroapp.dev` y `www.agroapp.dev` (redirigir `www` al apex).
+Variable de entorno (Production y Preview): `VITE_API_URL=https://api.agroapp.dev`. `apps/web/vercel.json` tiene el rewrite SPA. Dominios: `agroapp.dev` y `www.agroapp.dev`.
 
 ## 4. DNS (Name.com)
 
@@ -93,21 +99,20 @@ Dominios: **Settings → Domains** agregar `agroapp.dev` y `www.agroapp.dev` (re
 |:-|:-|:-|:-|
 | `@` | A | `76.76.21.21` | Vercel |
 | `www` | CNAME | `cname.vercel-dns.com` | Vercel |
-| `api` | CNAME | `<nombre>.onrender.com` (lo muestra Render al agregar el dominio) | Render |
-
-Propagación: minutos a algunas horas. Ambos proveedores emiten el certificado HTTPS solos cuando el DNS resuelve.
+| `api` | CNAME | `<nombre>.onrender.com` | Render |
 
 ## 5. Smoke test de producción
 
 ```bash
 curl https://api.agroapp.dev/health
 curl -X POST https://api.agroapp.dev/auth/login -H "Content-Type: application/json" \
-  -d '{"email":"cliente@agroapp.dev","password":"Cliente123!"}'
+  -d '{"email":"productor@agroapp.dev","password":"Productor123!"}'
+curl "https://api.agroapp.dev/contratistas?pageSize=1"
 ```
 
-Y desde el navegador: entrar a https://agroapp.dev, iniciar sesión como cliente, abrir un servicio y solicitarlo; entrar como prestamista y aceptarlo.
+Desde el navegador: entrar a https://agroapp.dev como productor, abrir un servicio y solicitarlo; entrar como contratista y aceptarlo.
 
 ## Actualizar producción
 
-- Backend: cada push a `main` redeploya en Render (auto-deploy). Si hay una migración nueva, correr `pnpm db:deploy` contra Aiven **antes** del push.
-- Frontend: cada push a `main` redeploya en Vercel.
+- Cada push a `main` redeploya backend (Render) y frontend (Vercel). Si Render y Vercel apuntan a un fork, sincronizarlo primero.
+- Si hay una migración nueva, correr `pnpm db:deploy` contra Aiven **antes** del push.
