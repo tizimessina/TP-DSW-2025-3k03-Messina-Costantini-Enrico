@@ -1,10 +1,23 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AgroApp</title>
+    <meta name="description" content="AgroApp conecta productores agropecuarios con contratistas rurales: siembra, cosecha, pulverización y más, con precio por hectárea." />
+    <meta name="theme-color" content="#2E7D4F" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+    <title>AgroApp · Servicios rurales</title>
+    <script>
+      // Evita el flash de tema: aplica dark antes de que React monte
+      try {
+        const t = localStorage.getItem("agroapp:theme");
+        if (t === "dark" || (!t && window.matchMedia("(prefers-color-scheme: dark)").matches)) document.documentElement.classList.add("dark");
+      } catch {}
+    </script>
   </head>
   <body>
     <div id="app"></div>

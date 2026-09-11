@@ -5,41 +5,31 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
-import type { AuthUser } from "../api/auth";
+import type { Usuario } from "../api/types";
 import ProtectedRoute from "./ProtectedRoute";
 
 const mockAuth = vi.hoisted(() => ({
-  user: null as AuthUser | null,
+  user: null as Usuario | null,
   loading: false as boolean,
   hasRole: ((..._roles: string[]) => false) as (...roles: string[]) => boolean,
 }));
+vi.mock("./AuthContext", () => ({ useAuth: () => mockAuth }));
 
-vi.mock("./AuthContext", () => ({
-  useAuth: () => mockAuth,
-}));
+const productor = { id_user: 2, email: "productor@agroapp.dev", nombre: "Carlos", apellido: "Ferreyra", roles: ["PRODUCTOR"], productor: null, contratista: null } as Usuario;
 
-const cliente: AuthUser = { id_user: 2, email: "cliente@agroapp.dev", nombre: "Carlos", apellido: "Productor", roles: ["CLIENTE"] };
-
-function renderAt(path: string, roles?: AuthUser["roles"]) {
+function renderAt(path: string, roles?: Usuario["roles"]) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
-        <Route path="/auth" element={<p>Pantalla de login</p>} />
-        <Route
-          path="/privada"
-          element={
-            <ProtectedRoute roles={roles}>
-              <p>Contenido privado</p>
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/ingresar" element={<p>Pantalla de login</p>} />
+        <Route path="/privada" element={<ProtectedRoute roles={roles}><p>Contenido privado</p></ProtectedRoute>} />
       </Routes>
     </MemoryRouter>,
   );
 }
 
 describe("ProtectedRoute", () => {
-  it("redirige a /auth cuando no hay sesión", () => {
+  it("redirige a /ingresar cuando no hay sesión", () => {
     mockAuth.user = null;
     renderAt("/privada");
     expect(screen.getByText("Pantalla de login")).toBeInTheDocument();
@@ -47,16 +37,15 @@ describe("ProtectedRoute", () => {
   });
 
   it("muestra 403 cuando el usuario no tiene el rol requerido", () => {
-    mockAuth.user = cliente;
-    mockAuth.hasRole = (...roles) => roles.some((r) => cliente.roles.includes(r as AuthUser["roles"][number]));
+    mockAuth.user = productor;
+    mockAuth.hasRole = (...roles) => roles.some((r) => productor.roles.includes(r as Usuario["roles"][number]));
     renderAt("/privada", ["ADMIN"]);
     expect(screen.getByText(/no tenés permisos/i)).toBeInTheDocument();
   });
 
   it("renderiza el contenido cuando el usuario tiene el rol", () => {
-    mockAuth.user = cliente;
-    mockAuth.hasRole = (...roles) => roles.some((r) => cliente.roles.includes(r as AuthUser["roles"][number]));
-    renderAt("/privada", ["CLIENTE"]);
+    mockAuth.user = productor;
+    renderAt("/privada", ["PRODUCTOR"]);
     expect(screen.getByText("Contenido privado")).toBeInTheDocument();
   });
 

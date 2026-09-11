@@ -1,152 +1,107 @@
+import { MapPin, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
-import { getApiErrorMessage } from "../../api/base";
-import { createLocalidad, deleteLocalidad, getLocalidades, updateLocalidad, type Localidad } from "../../api/localidades";
-import { getProvincias } from "../../api/provincias";
+import { getApiErrorMessage, localidades as localidadesApi, provincias as provinciasApi } from "../../api";
+import type { Localidad } from "../../api/types";
 import { useFeedback } from "../../components/feedback";
-import { Alert, Button, Card, EmptyState, Field, Input, PageSpinner, PageTitle, Select, Table, Td, Th } from "../../components/ui";
+import { AnimatedPage } from "../../components/layout/AppShell";
+import { Alert, Button, Card, EmptyState, Field, Input, PageHeader, Select, Skeleton, Td, Th } from "../../components/ui";
+import { Dialog } from "../../components/ui/Dialog";
 import { useQuery } from "../../lib/useQuery";
 
-/** CRUD dependiente: Localidad (depende de Provincia). Solo ADMIN. */
+/** CRUD dependiente: Localidad → Provincia. */
 export default function LocalidadesPage() {
   const { toast, confirm } = useFeedback();
-  const provincias = useQuery(() => getProvincias(), []);
-  const [filtroProvincia, setFiltroProvincia] = useState("");
-  const localidades = useQuery(() => getLocalidades(undefined, filtroProvincia ? Number(filtroProvincia) : undefined), [filtroProvincia]);
-
-  const [editing, setEditing] = useState<Localidad | null>(null);
-  const [idProvincia, setIdProvincia] = useState("");
-  const [nombre, setNombre] = useState("");
-  const [cp, setCp] = useState("");
+  const provincias = useQuery(() => provinciasApi.list(), []);
+  const [filtro, setFiltro] = useState("");
+  const lista = useQuery(() => localidadesApi.list({ id_provincia: filtro ? Number(filtro) : undefined }), [filtro]);
+  const [editing, setEditing] = useState<Localidad | null | undefined>(undefined);
+  const [form, setForm] = useState({ id_provincia: "", nombre: "", codigo_postal: "" });
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  const reset = () => {
-    setEditing(null);
-    setIdProvincia("");
-    setNombre("");
-    setCp("");
+  const open = (l: Localidad | null) => {
+    setEditing(l);
     setError(null);
+    setForm({ id_provincia: l ? String(l.id_provincia) : filtro, nombre: l?.nombre ?? "", codigo_postal: l?.codigo_postal ?? "" });
   };
 
-  const handleSubmit = async (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!idProvincia) return setError("Elegí una provincia.");
-    if (!nombre.trim()) return setError("El nombre es obligatorio.");
-    const payload = { id_provincia: Number(idProvincia), nombre: nombre.trim(), codigo_postal: cp.trim() || undefined };
+    setSaving(true);
     try {
-      if (editing) {
-        await updateLocalidad(editing.id_localidad, payload);
-        toast.success("Localidad actualizada");
-      } else {
-        await createLocalidad(payload);
-        toast.success("Localidad creada");
-      }
-      reset();
-      localidades.reload();
+      if (editing) await localidadesApi.update(editing.id_localidad, { nombre: form.nombre.trim(), codigo_postal: form.codigo_postal.trim() || null });
+      else await localidadesApi.create({ id_provincia: Number(form.id_provincia), nombre: form.nombre.trim(), codigo_postal: form.codigo_postal.trim() || null });
+      toast.success(editing ? "Localidad actualizada" : "Localidad creada");
+      setEditing(undefined);
+      lista.reload();
     } catch (err) {
       setError(getApiErrorMessage(err));
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleDelete = async (l: Localidad) => {
-    if (!(await confirm({ title: "Eliminar localidad", message: `¿Eliminar "${l.nombre}"?`, danger: true, confirmLabel: "Eliminar" }))) return;
+  const del = async (l: Localidad) => {
+    if (!(await confirm({ title: "Eliminar localidad", message: `¿Eliminar "${l.nombre}"? Solo es posible si no la usan usuarios ni campos.`, danger: true, confirmLabel: "Eliminar" }))) return;
     try {
-      await deleteLocalidad(l.id_localidad);
+      await localidadesApi.remove(l.id_localidad);
       toast.success("Localidad eliminada");
-      localidades.reload();
+      lista.reload();
     } catch (err) {
       toast.error(getApiErrorMessage(err));
     }
   };
 
-  const provinciaNombre = (id: number) => provincias.data?.find((p) => p.id_provincia === id)?.nombre ?? `#${id}`;
-
   return (
-    <div className="space-y-6">
-      <PageTitle title="Localidades" subtitle="Cada localidad pertenece a una provincia." />
-      <div className="grid gap-6 lg:grid-cols-[1fr_2fr]">
-        <Card title={editing ? "Editar localidad" : "Nueva localidad"}>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <Field label="Provincia">
-              <Select value={idProvincia} onChange={(e) => setIdProvincia(e.target.value)} required>
-                <option value="">Seleccionar…</option>
-                {provincias.data?.map((p) => (
-                  <option key={p.id_provincia} value={p.id_provincia}>
-                    {p.nombre}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Nombre">
-              <Input value={nombre} onChange={(e) => setNombre(e.target.value)} required />
-            </Field>
-            <Field label="Código postal (opcional)">
-              <Input value={cp} onChange={(e) => setCp(e.target.value)} maxLength={16} />
-            </Field>
-            {error && <Alert kind="error">{error}</Alert>}
-            <div className="flex gap-2">
-              <Button type="submit">{editing ? "Guardar" : "Crear"}</Button>
-              {editing && (
-                <Button type="button" variant="ghost" onClick={reset}>
-                  Cancelar
-                </Button>
-              )}
-            </div>
-          </form>
-        </Card>
-
-        <Card title="Listado">
-          <div className="mb-4 max-w-xs">
-            <Field label="Filtrar por provincia">
-              <Select value={filtroProvincia} onChange={(e) => setFiltroProvincia(e.target.value)}>
-                <option value="">Todas</option>
-                {provincias.data?.map((p) => (
-                  <option key={p.id_provincia} value={p.id_provincia}>
-                    {p.nombre}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          </div>
-          {localidades.loading ? (
-            <PageSpinner />
-          ) : localidades.error ? (
-            <Alert kind="error">{localidades.error}</Alert>
-          ) : !localidades.data?.length ? (
-            <EmptyState>No hay localidades para la selección actual.</EmptyState>
-          ) : (
-            <Table>
-              <thead>
-                <tr>
-                  <Th>Nombre</Th>
-                  <Th>Provincia</Th>
-                  <Th>CP</Th>
-                  <Th className="text-right">Acciones</Th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800">
-                {localidades.data.map((l) => (
-                  <tr key={l.id_localidad} className="hover:bg-slate-800/40">
+    <AnimatedPage>
+      <PageHeader eyebrow="Administración" title="Localidades" subtitle="Cada localidad pertenece a una provincia; la provincia no se cambia una vez creada." actions={<Button icon={<Plus className="h-4 w-4" />} onClick={() => open(null)}>Nueva localidad</Button>} />
+      <Card padded={false}>
+        <div className="p-4">
+          <Select value={filtro} onChange={(e) => setFiltro(e.target.value)} className="max-w-xs">
+            <option value="">Todas las provincias</option>
+            {provincias.data?.map((p) => <option key={p.id_provincia} value={p.id_provincia}>{p.nombre}</option>)}
+          </Select>
+        </div>
+        {lista.error && <div className="px-4 pb-4"><Alert kind="error">{lista.error}</Alert></div>}
+        {lista.loading ? (
+          <div className="space-y-2 p-4">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-10" />)}</div>
+        ) : !lista.data?.length ? (
+          <div className="p-4"><EmptyState icon={<MapPin className="h-6 w-6" />} title="Sin localidades" /></div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead><tr><Th>Localidad</Th><Th>Provincia</Th><Th>CP</Th><Th className="text-right">Acciones</Th></tr></thead>
+              <tbody>
+                {lista.data.map((l) => (
+                  <tr key={l.id_localidad} className="transition hover:bg-stone-50 dark:hover:bg-stone-800/50">
                     <Td className="font-medium">{l.nombre}</Td>
-                    <Td>{l.provincia?.nombre ?? provinciaNombre(l.id_provincia)}</Td>
-                    <Td>{l.codigo_postal || "-"}</Td>
-                    <Td className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button size="sm" variant="secondary" onClick={() => { setEditing(l); setIdProvincia(String(l.id_provincia)); setNombre(l.nombre); setCp(l.codigo_postal ?? ""); setError(null); }}>
-                          Editar
-                        </Button>
-                        <Button size="sm" variant="danger" onClick={() => handleDelete(l)}>
-                          Eliminar
-                        </Button>
-                      </div>
-                    </Td>
+                    <Td>{l.provincia?.nombre}</Td>
+                    <Td>{l.codigo_postal || "—"}</Td>
+                    <Td className="text-right"><span className="inline-flex gap-1"><Button variant="ghost" size="sm" onClick={() => open(l)} aria-label="Editar"><Pencil className="h-4 w-4" /></Button><Button variant="ghost" size="sm" onClick={() => del(l)} aria-label="Eliminar"><Trash2 className="h-4 w-4 text-red-500" /></Button></span></Td>
                   </tr>
                 ))}
               </tbody>
-            </Table>
-          )}
-        </Card>
-      </div>
-    </div>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      {editing !== undefined && (
+        <Dialog open onClose={() => setEditing(undefined)} title={editing ? "Editar localidad" : "Nueva localidad"} size="sm" footer={<><Button variant="ghost" onClick={() => setEditing(undefined)}>Cancelar</Button><Button form="loc-form" type="submit" loading={saving}>Guardar</Button></>}>
+          <form id="loc-form" onSubmit={submit} className="space-y-4">
+            <Field label="Provincia" required>
+              <Select value={form.id_provincia} onChange={(e) => setForm((p) => ({ ...p, id_provincia: e.target.value }))} required disabled={!!editing}>
+                <option value="">Elegir…</option>
+                {provincias.data?.map((p) => <option key={p.id_provincia} value={p.id_provincia}>{p.nombre}</option>)}
+              </Select>
+            </Field>
+            <Field label="Nombre" required><Input value={form.nombre} onChange={(e) => setForm((p) => ({ ...p, nombre: e.target.value }))} required /></Field>
+            <Field label="Código postal"><Input value={form.codigo_postal} onChange={(e) => setForm((p) => ({ ...p, codigo_postal: e.target.value }))} maxLength={16} /></Field>
+            {error && <Alert kind="error">{error}</Alert>}
+          </form>
+        </Dialog>
+      )}
+    </AnimatedPage>
   );
 }

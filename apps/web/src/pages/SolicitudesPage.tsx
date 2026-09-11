@@ -1,156 +1,79 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
-import { getApiErrorMessage } from "../api/base";
-import { deleteSolicitud, ESTADOS, getSolicitudes, updateSolicitudEstado, type Solicitud, type SolicitudEstado } from "../api/solicitudes";
+import { ClipboardList, Sprout } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import { solicitudes as solicitudesApi } from "../api";
+import { ESTADOS, ESTADO_LABELS, type SolicitudEstado } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
-import { useFeedback } from "../components/feedback";
-import { Alert, Button, EmptyState, EstadoBadge, Field, LinkButton, PageSpinner, PageTitle, Select, Table, Td, Th } from "../components/ui";
-import { fmtDate, fmtMoney, fmtNumber, fullName } from "../lib/format";
+import { AnimatedPage } from "../components/layout/AppShell";
+import { Alert, EmptyState, EstadoBadge, LinkButton, PageHeader, Pagination, Skeleton, Stars } from "../components/ui";
+import { cn } from "../lib/cn";
+import { fmtDate, fmtHa, fmtMoney, fullName } from "../lib/format";
 import { useQuery } from "../lib/useQuery";
 
-/** Listado de solicitudes (historial) filtrado por estado, con acciones según el rol. */
+/** Historial de solicitudes con filtro por estado. */
 export default function SolicitudesPage() {
-  const { user, isAdmin, isCliente, isPrestamista } = useAuth();
-  const { toast, confirm } = useFeedback();
-  const [estado, setEstado] = useState<SolicitudEstado | "">("");
-  const [vista, setVista] = useState<"cliente" | "prestamista">(isPrestamista && !isCliente ? "prestamista" : "cliente");
-
-  const solicitudes = useQuery(
-    () =>
-      getSolicitudes({
-        estado: estado || undefined,
-        ...(isCliente && isPrestamista && vista === "prestamista" ? { id_prestamista: user!.id_user } : {}),
-      }),
-    [estado, vista],
-  );
-
-  const cambiarEstado = async (s: Solicitud, nuevo: SolicitudEstado) => {
-    const label = { aceptada: "aceptar", rechazada: "rechazar", completada: "marcar como completada", pendiente: "" }[nuevo];
-    if (!(await confirm({ title: "Cambiar estado", message: `¿Querés ${label} la solicitud #${s.id_solicitud}?`, danger: nuevo === "rechazada" }))) return;
-    try {
-      await updateSolicitudEstado(s.id_solicitud, { estado: nuevo });
-      toast.success(`Solicitud ${nuevo}`);
-      solicitudes.reload();
-    } catch (err) {
-      toast.error(getApiErrorMessage(err));
-    }
+  const { isProductor, isContratista, isAdmin } = useAuth();
+  const [params, setParams] = useSearchParams();
+  const estado = (params.get("estado") ?? "") as SolicitudEstado | "";
+  const page = Number(params.get("page") ?? 1);
+  const setParam = (k: string, v: string) => {
+    const next = new URLSearchParams(params);
+    if (v) next.set(k, v); else next.delete(k);
+    if (k !== "page") next.delete("page");
+    setParams(next, { replace: true });
   };
 
-  const cancelar = async (s: Solicitud) => {
-    if (!(await confirm({ title: "Cancelar solicitud", message: `¿Cancelar la solicitud #${s.id_solicitud}?`, danger: true, confirmLabel: "Cancelar solicitud", cancelLabel: "Volver" }))) return;
-    try {
-      await deleteSolicitud(s.id_solicitud);
-      toast.success("Solicitud cancelada");
-      solicitudes.reload();
-    } catch (err) {
-      toast.error(getApiErrorMessage(err));
-    }
-  };
-
-  const puedeGestionar = (s: Solicitud) => isAdmin || (isPrestamista && s.id_prestamista === user!.id_user);
-  const puedeCancelar = (s: Solicitud) => isAdmin || (isCliente && s.id_cliente === user!.id_user && s.estado === "pendiente");
-
-  const title = isAdmin ? "Solicitudes" : isPrestamista && !isCliente ? "Solicitudes recibidas" : "Mis solicitudes";
+  const lista = useQuery(() => solicitudesApi.list({ estado: estado || undefined, page, pageSize: 10 }), [estado, page]);
+  const contraparte = isContratista && !isProductor ? "Productor" : "Contratista";
 
   return (
-    <div className="space-y-6">
-      <PageTitle
-        title={title}
-        subtitle="Seguí el estado de cada pedido. Tocá una fila para ver el detalle completo."
-        actions={isCliente ? <LinkButton to="/servicios">Nueva solicitud</LinkButton> : undefined}
+    <AnimatedPage>
+      <PageHeader
+        title={isAdmin && !isProductor && !isContratista ? "Solicitudes" : isContratista ? "Solicitudes recibidas" : "Mis solicitudes"}
+        subtitle="Cada solicitud fija el precio del momento y avanza por estados: pendiente, aceptada, completada."
+        actions={isProductor ? <LinkButton to="/servicios" icon={<Sprout className="h-4 w-4" />}>Nueva solicitud</LinkButton> : undefined}
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:max-w-xl">
-        <Field label="Estado">
-          <Select value={estado} onChange={(e) => setEstado(e.target.value as SolicitudEstado | "")}>
-            <option value="">Todos</option>
-            {ESTADOS.map((e) => (
-              <option key={e} value={e} className="capitalize">
-                {e}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        {isCliente && isPrestamista && (
-          <Field label="Ver como">
-            <Select value={vista} onChange={(e) => setVista(e.target.value as "cliente" | "prestamista")}>
-              <option value="cliente">Cliente (las que pedí)</option>
-              <option value="prestamista">Prestamista (las que recibí)</option>
-            </Select>
-          </Field>
-        )}
+      <div className="scrollbar-thin mb-5 flex gap-2 overflow-x-auto pb-1">
+        {(["", ...ESTADOS] as const).map((e) => (
+          <button key={e} type="button" onClick={() => setParam("estado", e)} className={cn("whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-semibold transition", estado === e ? "bg-brand-600 text-white shadow-sm" : "bg-white text-stone-600 ring-1 ring-stone-200 hover:bg-stone-100 dark:bg-stone-900 dark:text-stone-300 dark:ring-stone-700 dark:hover:bg-stone-800")}>
+            {e ? ESTADO_LABELS[e] : "Todas"}
+          </button>
+        ))}
       </div>
 
-      {solicitudes.loading ? (
-        <PageSpinner />
-      ) : solicitudes.error ? (
-        <Alert kind="error">{solicitudes.error}</Alert>
-      ) : !solicitudes.data?.length ? (
-        <EmptyState>No hay solicitudes para mostrar.</EmptyState>
+      {lista.error && <Alert kind="error" className="mb-4">{lista.error}</Alert>}
+      {lista.loading ? (
+        <div className="space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-20 rounded-2xl" />)}</div>
+      ) : !lista.data?.items.length ? (
+        <EmptyState icon={<ClipboardList className="h-6 w-6" />} title="No hay solicitudes para mostrar">{estado ? "Probá con otro estado." : isProductor ? "Elegí un servicio del catálogo para hacer tu primera solicitud." : "Cuando un productor solicite uno de tus servicios, va a aparecer acá."}</EmptyState>
       ) : (
-        <Table>
-          <thead>
-            <tr>
-              <Th>#</Th>
-              <Th>Fecha</Th>
-              <Th>Servicio</Th>
-              <Th>{isPrestamista && !isCliente ? "Cliente" : "Prestamista"}</Th>
-              <Th>Campo</Th>
-              <Th>Ha</Th>
-              <Th>Estado</Th>
-              <Th>Total</Th>
-              <Th className="text-right">Acciones</Th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-800">
-            {solicitudes.data.map((s) => (
-              <tr key={s.id_solicitud} className="hover:bg-slate-800/40">
-                <Td>
-                  <Link to={`/solicitudes/${s.id_solicitud}`} className="font-semibold text-emerald-200 hover:underline">
-                    #{s.id_solicitud}
-                  </Link>
-                </Td>
-                <Td className="whitespace-nowrap">{fmtDate(s.fecha_solicitud)}</Td>
-                <Td>
-                  {s.servicio?.nombre}
-                  <span className="block text-xs text-slate-500">{s.servicio?.categoria?.nombre}</span>
-                </Td>
-                <Td>{isPrestamista && !isCliente ? fullName(s.cliente_profile?.users) : fullName(s.prestamista_profile?.users)}</Td>
-                <Td className="text-xs">{s.campo?.coordenadas}</Td>
-                <Td>{fmtNumber(s.hectareas_trabajadas)}</Td>
-                <Td>
-                  <EstadoBadge estado={s.estado} />
-                </Td>
-                <Td className="whitespace-nowrap">{fmtMoney(s.precio_total)}</Td>
-                <Td className="text-right">
-                  <div className="flex flex-wrap justify-end gap-1">
-                    {puedeGestionar(s) && s.estado === "pendiente" && (
-                      <>
-                        <Button size="sm" onClick={() => cambiarEstado(s, "aceptada")}>
-                          Aceptar
-                        </Button>
-                        <Button size="sm" variant="danger" onClick={() => cambiarEstado(s, "rechazada")}>
-                          Rechazar
-                        </Button>
-                      </>
-                    )}
-                    {puedeGestionar(s) && s.estado === "aceptada" && (
-                      <Button size="sm" onClick={() => cambiarEstado(s, "completada")}>
-                        Completar
-                      </Button>
-                    )}
-                    {puedeCancelar(s) && (
-                      <Button size="sm" variant="ghost" onClick={() => cancelar(s)}>
-                        Cancelar
-                      </Button>
-                    )}
+        <>
+          <ul className="space-y-3">
+            {lista.data.items.map((s) => (
+              <li key={s.id_solicitud}>
+                <Link to={`/solicitudes/${s.id_solicitud}`} className="surface surface-hover flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-5">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-semibold text-stone-400">#{s.id_solicitud}</span>
+                      <EstadoBadge estado={s.estado} />
+                      {s.valoracion && <Stars value={s.valoracion.puntaje} />}
+                    </div>
+                    <p className="mt-1 truncate text-lg font-bold">{s.servicio?.nombre}</p>
+                    <p className="truncate text-sm text-stone-500">
+                      {contraparte}: {fullName(isContratista && !isProductor ? s.productor_profile?.users : s.contratista_profile?.users)} · {s.campo?.nombre} ({s.campo?.localidad?.nombre}) · {fmtHa(s.hectareas_trabajadas)}
+                    </p>
                   </div>
-                </Td>
-              </tr>
+                  <div className="flex items-center justify-between gap-4 sm:flex-col sm:items-end sm:gap-0.5">
+                    <span className="text-lg font-extrabold text-stone-900 dark:text-white">{fmtMoney(s.precio_total)}</span>
+                    <span className="text-xs text-stone-500">{s.fecha_inicio ? `inicio ${fmtDate(s.fecha_inicio)}` : `pedida ${fmtDate(s.fecha_solicitud)}`}</span>
+                  </div>
+                </Link>
+              </li>
             ))}
-          </tbody>
-        </Table>
+          </ul>
+          <Pagination page={lista.data.page} totalPages={lista.data.totalPages} total={lista.data.total} onChange={(p) => setParam("page", String(p))} />
+        </>
       )}
-    </div>
+    </AnimatedPage>
   );
 }

@@ -1,291 +1,119 @@
-import { useMemo, useState, type FormEvent } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
-import { getApiErrorMessage } from "../api/base";
-import { listCampos } from "../api/campo";
-import { getInsumos } from "../api/insumos";
-import { getServicio, precioActual, type Servicio } from "../api/servicios";
-import { createSolicitud, type SolicitudInsumoProveedor } from "../api/solicitudes";
+import { ArrowLeft, Award, CalendarDays, Info, MapPin, Tractor } from "lucide-react";
+import { useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import { servicios as serviciosApi, valoraciones as valoracionesApi } from "../api";
 import { useAuth } from "../auth/AuthContext";
-import { useFeedback } from "../components/feedback";
-import { Alert, Button, Card, DetailItem, Field, Input, LinkButton, PageSpinner, PageTitle, Select, Table, Td, Th } from "../components/ui";
-import { dateInputToIso, fmtDate, fmtMoney, fmtNumber, fullName } from "../lib/format";
+import { AnimatedPage } from "../components/layout/AppShell";
+import { SolicitarWizard } from "../components/SolicitarWizard";
+import { Alert, Avatar, Button, Card, DetailItem, LinkButton, PageSpinner, Stars, Table, Td, Th } from "../components/ui";
+import { fmtDate, fmtMoney, fmtMoneyExact, fullName, ubicacion } from "../lib/format";
 import { useQuery } from "../lib/useQuery";
 
-/** Detalle de un servicio: datos, categoría, prestamista, historial de precios y formulario para solicitarlo. */
 export default function ServicioDetailPage() {
   const { id } = useParams();
-  const { isCliente, user } = useAuth();
-  const servicio = useQuery(() => getServicio(Number(id)), [id]);
+  const { user, isProductor } = useAuth();
+  const servicio = useQuery(() => serviciosApi.get(Number(id)), [id]);
+  const valoraciones = useQuery(() => valoracionesApi.list({ id_servicio: Number(id) }), [id]);
+  const [wizardOpen, setWizardOpen] = useState(false);
 
   if (servicio.loading) return <PageSpinner />;
-  if (servicio.error || !servicio.data) return <Alert kind="error">{servicio.error ?? "Servicio no encontrado"}</Alert>;
+  if (servicio.error || !servicio.data) return <div className="mx-auto max-w-3xl p-6"><Alert kind="error">{servicio.error ?? "Servicio no encontrado"}</Alert></div>;
 
   const s = servicio.data;
-  const precio = precioActual(s);
-  const prestamista = s.prestamista_profile?.users;
-  const esPropio = user?.id_user === s.id_prestamista;
+  const c = s.contratista_profile;
+  const precio = s.precio_vigente;
+  const esPropio = user?.id_user === s.id_contratista;
 
   return (
-    <div className="space-y-6">
-      <PageTitle
-        title={s.nombre}
-        subtitle={s.categoria?.nombre}
-        actions={
-          <>
-            <LinkButton to="/servicios" variant="ghost">
-              ← Volver
-            </LinkButton>
-            {esPropio && <LinkButton to="/mis-servicios" variant="secondary">Editar en Mis servicios</LinkButton>}
-          </>
-        }
-      />
+    <AnimatedPage className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <Link to="/servicios" className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-stone-500 hover:text-stone-800 dark:hover:text-stone-200"><ArrowLeft className="h-4 w-4" /> Volver al catálogo</Link>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card title="Servicio" className="lg:col-span-2">
-          <dl className="grid gap-4 sm:grid-cols-2">
-            <DetailItem label="Descripción">{s.descripcion || "-"}</DetailItem>
-            <DetailItem label="Categoría">{s.categoria?.nombre ?? "-"}</DetailItem>
-            <DetailItem label="Precio vigente">
-              <span className="text-lg font-bold text-emerald-200">
-                {precio ? `${fmtMoney(precio.valor)} / ha` : "Sin precio publicado"}
-              </span>
-            </DetailItem>
-            <DetailItem label="Publicado">{fmtDate(s.created_at)}</DetailItem>
-          </dl>
+      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+        <div className="space-y-6">
+          <div className="surface p-6 sm:p-8">
+            <span className="rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-800 dark:bg-brand-900/40 dark:text-brand-100">{s.categoria?.nombre}</span>
+            <h1 className="mt-3 text-3xl font-extrabold text-stone-900 dark:text-white">{s.nombre}</h1>
+            {!s.activo && <Alert kind="warning" className="mt-3">Este servicio está desactivado y no aparece en el catálogo.</Alert>}
+            <p className="mt-3 text-stone-600 dark:text-stone-300">{s.descripcion || "El contratista no agregó una descripción."}</p>
+            <dl className="mt-6 grid gap-4 sm:grid-cols-3">
+              <DetailItem label="Precio vigente"><span className="text-lg font-extrabold text-brand-700 dark:text-brand-300">{precio ? `${fmtMoneyExact(precio.valor)} / ha` : "Sin precio"}</span></DetailItem>
+              <DetailItem label="Trabajos completados">{s.trabajos_completados ?? 0}</DetailItem>
+              <DetailItem label="Publicado">{fmtDate(s.created_at)}</DetailItem>
+            </dl>
+          </div>
 
-          {s.precio && s.precio.length > 0 && (
-            <div className="mt-6">
-              <h3 className="mb-2 text-sm font-semibold text-slate-300">Historial de precios</h3>
+          {s.precios && s.precios.length > 0 && (
+            <Card title="Historial de precios" subtitle="El vigente es el de fecha más reciente que no sea futura.">
               <Table>
-                <thead>
-                  <tr>
-                    <Th>Desde</Th>
-                    <Th>Valor por hectárea</Th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800">
-                  {s.precio.map((p) => (
+                <thead><tr><Th>Vigente desde</Th><Th>Precio por hectárea</Th><Th></Th></tr></thead>
+                <tbody>
+                  {s.precios.map((p) => (
                     <tr key={p.id_precio}>
                       <Td>{fmtDate(p.fecha_desde)}</Td>
-                      <Td>{fmtMoney(p.valor)}</Td>
+                      <Td className="font-semibold">{fmtMoneyExact(p.valor)}</Td>
+                      <Td>{precio?.id_precio === p.id_precio && <span className="rounded-full bg-brand-100 px-2 py-0.5 text-xs font-semibold text-brand-800 dark:bg-brand-900/40 dark:text-brand-100">vigente</span>}</Td>
                     </tr>
                   ))}
                 </tbody>
               </Table>
-            </div>
+            </Card>
           )}
-        </Card>
 
-        <Card title="Prestamista">
-          {prestamista ? (
-            <dl className="space-y-3">
-              <DetailItem label="Nombre">
-                <Link to={`/prestamistas/${s.id_prestamista}`} className="text-emerald-300 hover:underline">
-                  {fullName(prestamista)}
-                </Link>
-              </DetailItem>
-              <DetailItem label="Localidad">
-                {prestamista.localidad
-                  ? `${prestamista.localidad.nombre}${prestamista.localidad.provincia ? `, ${prestamista.localidad.provincia.nombre}` : ""}`
-                  : "-"}
-              </DetailItem>
-              <DetailItem label="Domicilio">{prestamista.domicilio || "-"}</DetailItem>
-              <DetailItem label="Contacto">{prestamista.email}</DetailItem>
-            </dl>
-          ) : (
-            <p className="text-sm text-slate-400">Sin datos del prestamista.</p>
-          )}
-        </Card>
+          <Card title="Valoraciones" subtitle={valoraciones.data?.cantidad ? `${valoraciones.data.cantidad} opiniones de productores` : "Todavía nadie valoró este servicio"}>
+            {valoraciones.data?.promedio != null && <Stars value={valoraciones.data.promedio} count={valoraciones.data.cantidad} size="md" className="mb-4" />}
+            <ul className="divide-y divide-stone-100 dark:divide-stone-800">
+              {valoraciones.data?.items.map((v) => (
+                <li key={v.id_valoracion} className="py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-semibold">{fullName(v.solicitud?.productor_profile.users)}</span>
+                    <Stars value={v.puntaje} />
+                  </div>
+                  {v.comentario && <p className="mt-1 text-sm text-stone-600 dark:text-stone-400">{v.comentario}</p>}
+                  <p className="mt-1 text-xs text-stone-400">{fmtDate(v.fecha)}</p>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </div>
+
+        <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
+          <div className="surface p-5">
+            <p className="text-xs font-semibold uppercase tracking-wider text-stone-500">Contratista</p>
+            <Link to={`/contratistas/${s.id_contratista}`} className="mt-3 flex items-center gap-3 rounded-xl p-2 transition hover:bg-stone-100 dark:hover:bg-stone-800">
+              <Avatar name={fullName(c?.users)} />
+              <span className="min-w-0">
+                <span className="block truncate font-bold">{fullName(c?.users)}</span>
+                <span className="flex items-center gap-1 text-xs text-stone-500"><MapPin className="h-3 w-3" />{ubicacion(c?.users.localidad)}</span>
+              </span>
+            </Link>
+            {c?.descripcion && <p className="mt-3 line-clamp-3 text-sm text-stone-600 dark:text-stone-400">{c.descripcion}</p>}
+            {c?.anios_experiencia != null && <p className="mt-2 flex items-center gap-1.5 text-xs text-stone-500"><Award className="h-3.5 w-3.5" />{c.anios_experiencia} años de experiencia</p>}
+          </div>
+
+          <div className="surface p-5">
+            <p className="text-3xl font-extrabold text-stone-900 dark:text-white">{precio ? fmtMoney(precio.valor) : "—"} <span className="text-base font-medium text-stone-500">/ hectárea</span></p>
+            {isProductor && !esPropio ? (
+              precio && s.activo ? (
+                <Button size="lg" className="mt-4 w-full" icon={<Tractor className="h-4 w-4" />} onClick={() => setWizardOpen(true)}>Solicitar este servicio</Button>
+              ) : (
+                <Alert kind="info" className="mt-4">Este servicio no se puede solicitar por ahora.</Alert>
+              )
+            ) : !user ? (
+              <>
+                <LinkButton to="/ingresar" size="lg" className="mt-4 w-full">Ingresá para solicitarlo</LinkButton>
+                <p className="mt-2 text-center text-xs text-stone-500">¿No tenés cuenta? <Link to="/registro" className="font-semibold text-brand-700 hover:underline dark:text-brand-300">Registrate como productor</Link></p>
+              </>
+            ) : esPropio ? (
+              <LinkButton to="/mis-servicios" variant="outline" className="mt-4 w-full">Editar en Mis servicios</LinkButton>
+            ) : (
+              <p className="mt-4 flex items-start gap-2 text-xs text-stone-500"><Info className="mt-0.5 h-4 w-4 shrink-0" />Solo los productores pueden solicitar servicios.</p>
+            )}
+            <p className="mt-4 flex items-center gap-1.5 text-xs text-stone-500"><CalendarDays className="h-3.5 w-3.5" />Respuesta del contratista en la plataforma</p>
+          </div>
+        </aside>
       </div>
 
-      {isCliente && !esPropio ? (
-        precio ? (
-          <SolicitarForm servicio={s} precioPorHa={Number(precio.valor)} />
-        ) : (
-          <Alert kind="info">Este servicio todavía no tiene un precio publicado, no se puede solicitar.</Alert>
-        )
-      ) : !user ? (
-        <Alert kind="info">
-          <Link to="/auth" className="font-semibold text-emerald-300 hover:underline">
-            Ingresá como cliente
-          </Link>{" "}
-          para solicitar este servicio.
-        </Alert>
-      ) : null}
-    </div>
-  );
-}
-
-/* ---------- Formulario "Solicitar servicio" (CUU principal) ---------- */
-
-type InsumoRow = { id_insumo: string; cantidad: string; precio_unit: string; proveedor: SolicitudInsumoProveedor };
-
-function SolicitarForm({ servicio, precioPorHa }: { servicio: Servicio; precioPorHa: number }) {
-  const navigate = useNavigate();
-  const { toast } = useFeedback();
-  const campos = useQuery(() => listCampos(), []);
-  const insumos = useQuery(() => getInsumos(), []);
-
-  const [idCampo, setIdCampo] = useState("");
-  const [hectareas, setHectareas] = useState("");
-  const [fechaInicio, setFechaInicio] = useState("");
-  const [fechaFin, setFechaFin] = useState("");
-  const [rows, setRows] = useState<InsumoRow[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-
-  const campo = campos.data?.find((c) => String(c.id_campo) === idCampo);
-  const ha = Number(hectareas) || 0;
-
-  const estimado = useMemo(() => {
-    const servicioTotal = precioPorHa * ha;
-    const insumosTotal = rows.reduce((acc, r) => acc + (Number(r.cantidad) || 0) * (Number(r.precio_unit) || 0), 0);
-    return { servicioTotal, insumosTotal, total: servicioTotal + insumosTotal };
-  }, [precioPorHa, ha, rows]);
-
-  const updateRow = (i: number, patch: Partial<InsumoRow>) =>
-    setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    if (!idCampo) return setError("Elegí el campo donde se hará el trabajo.");
-    if (ha <= 0) return setError("Indicá cuántas hectáreas se van a trabajar.");
-    if (campo && ha > Number(campo.hectareas)) return setError(`El campo tiene ${fmtNumber(campo.hectareas)} ha; no podés trabajar más que eso.`);
-    const insumosPayload = rows
-      .filter((r) => r.id_insumo)
-      .map((r) => ({
-        id_insumo: Number(r.id_insumo),
-        cantidad: Number(r.cantidad),
-        precio_unit: Number(r.precio_unit),
-        proveedor: r.proveedor,
-      }));
-    if (insumosPayload.some((r) => !(r.cantidad > 0) || r.precio_unit < 0)) {
-      return setError("Revisá las cantidades y precios de los insumos.");
-    }
-
-    setSubmitting(true);
-    try {
-      const created = await createSolicitud({
-        id_servicio: servicio.id_servicio,
-        id_campo: Number(idCampo),
-        hectareas_trabajadas: ha,
-        fecha_inicio: dateInputToIso(fechaInicio),
-        fecha_fin: dateInputToIso(fechaFin),
-        insumos: insumosPayload,
-      });
-      toast.success("Solicitud enviada al prestamista");
-      navigate(`/solicitudes/${created.id_solicitud}`);
-    } catch (err) {
-      setError(getApiErrorMessage(err, "No se pudo crear la solicitud"));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <Card title="Solicitar este servicio">
-      {campos.data && campos.data.length === 0 && (
-        <Alert kind="info">
-          Todavía no registraste ningún campo.{" "}
-          <Link to="/campos" className="font-semibold text-emerald-300 hover:underline">
-            Cargá tu primer campo
-          </Link>{" "}
-          para poder solicitar servicios.
-        </Alert>
-      )}
-
-      <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Campo">
-            <Select value={idCampo} onChange={(e) => setIdCampo(e.target.value)} required>
-              <option value="">Seleccionar campo</option>
-              {campos.data?.map((c) => (
-                <option key={c.id_campo} value={c.id_campo}>
-                  {c.coordenadas} · {fmtNumber(c.hectareas)} ha
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Hectáreas a trabajar" hint={campo ? `Máximo ${fmtNumber(campo.hectareas)} ha` : undefined}>
-            <Input type="number" min="0.1" step="0.1" value={hectareas} onChange={(e) => setHectareas(e.target.value)} required />
-          </Field>
-          <Field label="Fecha de inicio deseada (opcional)">
-            <Input type="date" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} />
-          </Field>
-          <Field label="Fecha de fin deseada (opcional)">
-            <Input type="date" value={fechaFin} onChange={(e) => setFechaFin(e.target.value)} min={fechaInicio || undefined} />
-          </Field>
-        </div>
-
-        <div>
-          <div className="mb-2 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-slate-300">Insumos (opcional)</h3>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setRows((r) => [...r, { id_insumo: "", cantidad: "1", precio_unit: "0", proveedor: "PRESTAMISTA" }])}
-            >
-              + Agregar insumo
-            </Button>
-          </div>
-          {rows.length > 0 && (
-            <div className="space-y-2">
-              {rows.map((r, i) => (
-                <div key={i} className="grid gap-2 rounded-lg border border-slate-800 p-2 sm:grid-cols-[2fr_1fr_1fr_1fr_auto] sm:items-end">
-                  <Field label="Insumo">
-                    <Select value={r.id_insumo} onChange={(e) => updateRow(i, { id_insumo: e.target.value })}>
-                      <option value="">Elegir…</option>
-                      {insumos.data?.map((x) => (
-                        <option key={x.id_insumo} value={x.id_insumo}>
-                          {x.nombre}
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
-                  <Field label="Cantidad">
-                    <Input type="number" min="0.01" step="0.01" value={r.cantidad} onChange={(e) => updateRow(i, { cantidad: e.target.value })} />
-                  </Field>
-                  <Field label="Precio unit.">
-                    <Input type="number" min="0" step="0.01" value={r.precio_unit} onChange={(e) => updateRow(i, { precio_unit: e.target.value })} />
-                  </Field>
-                  <Field label="Lo provee">
-                    <Select value={r.proveedor} onChange={(e) => updateRow(i, { proveedor: e.target.value as SolicitudInsumoProveedor })}>
-                      <option value="PRESTAMISTA">Prestamista</option>
-                      <option value="CLIENTE">Cliente</option>
-                    </Select>
-                  </Field>
-                  <Button type="button" variant="danger" size="sm" onClick={() => setRows((prev) => prev.filter((_, idx) => idx !== i))}>
-                    Quitar
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="rounded-lg bg-slate-950/70 p-4 text-sm">
-          <div className="flex justify-between text-slate-300">
-            <span>Servicio ({fmtMoney(precioPorHa)} × {fmtNumber(ha)} ha)</span>
-            <span>{fmtMoney(estimado.servicioTotal)}</span>
-          </div>
-          <div className="flex justify-between text-slate-300">
-            <span>Insumos</span>
-            <span>{fmtMoney(estimado.insumosTotal)}</span>
-          </div>
-          <div className="mt-2 flex justify-between border-t border-slate-800 pt-2 text-base font-bold text-emerald-200">
-            <span>Total estimado</span>
-            <span>{fmtMoney(estimado.total)}</span>
-          </div>
-        </div>
-
-        {error && <Alert kind="error">{error}</Alert>}
-
-        <Button type="submit" disabled={submitting || !campos.data?.length} className="w-full sm:w-auto">
-          {submitting ? "Enviando…" : "Enviar solicitud"}
-        </Button>
-      </form>
-    </Card>
+      {isProductor && precio && <SolicitarWizard open={wizardOpen} onClose={() => setWizardOpen(false)} servicio={s} />}
+    </AnimatedPage>
   );
 }
