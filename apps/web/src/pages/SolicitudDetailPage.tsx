@@ -1,44 +1,16 @@
-import { ArrowLeft, Ban, Check, CheckCircle2, Circle, Mail, MapPin, Phone, Star, X } from "lucide-react";
+import { ArrowLeft, Ban, Check, CheckCircle2, Mail, MapPin, Phone, Star, X } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { getApiErrorMessage, solicitudes as solicitudesApi, valoraciones as valoracionesApi } from "../api";
-import type { Solicitud, SolicitudEstado, UsuarioContacto } from "../api/types";
+import type { UsuarioContacto } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { useFeedback } from "../components/feedback";
 import { AnimatedPage } from "../components/layout/AppShell";
+import { SolicitudTimeline } from "../components/SolicitudTimeline";
 import { Alert, Avatar, Button, Card, DetailItem, EstadoBadge, PageSpinner, Stars, Table, Td, Textarea, Th, Field, Input } from "../components/ui";
 import { Dialog } from "../components/ui/Dialog";
-import { cn } from "../lib/cn";
 import { fmtDate, fmtDateTime, fmtHa, fmtMoneyExact, fmtNumber, fullName, isoToDateInput, dateInputToIso, ubicacion } from "../lib/format";
 import { useQuery } from "../lib/useQuery";
-
-const PASOS: { estado: SolicitudEstado; label: string }[] = [
-  { estado: "pendiente", label: "Solicitada" },
-  { estado: "aceptada", label: "Aceptada" },
-  { estado: "completada", label: "Completada" },
-];
-
-function Timeline({ s }: { s: Solicitud }) {
-  const terminal = s.estado === "rechazada" || s.estado === "cancelada";
-  const idx = terminal ? 0 : PASOS.findIndex((p) => p.estado === s.estado);
-  return (
-    <ol className="flex items-center gap-2 text-xs font-semibold">
-      {PASOS.map((p, i) => {
-        const done = !terminal && i <= idx;
-        return (
-          <li key={p.estado} className="flex items-center gap-2">
-            <span className={cn("flex h-7 w-7 items-center justify-center rounded-full", done ? "bg-brand-600 text-white" : "bg-stone-200 text-stone-500 dark:bg-stone-800")}>{done ? <Check className="h-4 w-4" /> : <Circle className="h-3 w-3" />}</span>
-            <span className={done ? "text-stone-900 dark:text-white" : "text-stone-400"}>{p.label}</span>
-            {i < PASOS.length - 1 && <span className={cn("h-px w-8 sm:w-14", !terminal && i < idx ? "bg-brand-500" : "bg-stone-300 dark:bg-stone-700")} />}
-          </li>
-        );
-      })}
-      {terminal && (
-        <li className="ml-2 flex items-center gap-2"><span className="flex h-7 w-7 items-center justify-center rounded-full bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-200"><X className="h-4 w-4" /></span><span className="text-red-700 dark:text-red-300">{s.estado === "rechazada" ? "Rechazada" : "Cancelada"}</span></li>
-      )}
-    </ol>
-  );
-}
 
 function Contacto({ titulo, u, extra }: { titulo: string; u?: UsuarioContacto; extra?: string | null }) {
   return (
@@ -145,7 +117,7 @@ export default function SolicitudDetailPage() {
             {isAdmin && <Button variant="danger" size="sm" onClick={eliminar}>Eliminar</Button>}
           </div>
         </div>
-        <div className="mt-5 overflow-x-auto"><Timeline s={s} /></div>
+        <div className="mt-5"><div className="overflow-x-auto"><SolicitudTimeline s={s} /></div></div>
         {(s.estado === "rechazada" || s.estado === "cancelada") && s.motivo && <Alert kind="warning" className="mt-4"><b>Motivo:</b> {s.motivo}</Alert>}
         {s.estado === "pendiente" && soyContratista && <Alert kind="info" className="mt-4">El productor espera tu respuesta. Al aceptar podés fijar la fecha de inicio.</Alert>}
       </div>

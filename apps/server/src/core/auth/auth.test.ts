@@ -10,10 +10,16 @@ import { signToken, verifyToken } from "./jwt.js";
 import { assertOwnerOrAdmin, requireAuth, requireRole } from "./middleware.js";
 import type { AuthUser } from "./types.js";
 
-const admin: AuthUser = { id_user: 1n, email: "admin@agroapp.dev", roles: ["ADMIN"] };
-const productor: AuthUser = { id_user: 2n, email: "productor@agroapp.dev", roles: ["PRODUCTOR"] };
+const admin: AuthUser = { id_user: 1n, email: "admin@agroapp.dev", nombre: "Ana", apellido: "Duarte", roles: ["ADMIN"] };
+const productor: AuthUser = { id_user: 2n, email: "productor@agroapp.dev", nombre: "Carlos", apellido: "Ferreyra", roles: ["PRODUCTOR"] };
 
-const dbUser = (u: AuthUser) => ({ id_user: u.id_user, email: u.email, user_roles: u.roles.map((name) => ({ roles: { name } })) });
+const dbUser = (u: AuthUser) => ({
+  id_user: u.id_user,
+  email: u.email,
+  nombre: u.nombre,
+  apellido: u.apellido,
+  user_roles: u.roles.map((name) => ({ roles: { name } })),
+});
 const mockReq = (authorization?: string) => ({ headers: authorization ? { authorization } : {} }) as unknown as Request;
 const res = {} as Response;
 

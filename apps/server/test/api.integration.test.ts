@@ -171,6 +171,39 @@ describe("caso de uso completo", () => {
     expect(lista.body.promedio).toBe(4);
   });
 
+  it("el historial registra alta, aceptación, completado y valoración con su actor", async () => {
+    const res = await request(app).get(`/solicitudes/${solicitudId}`).set(auth(productor));
+    expect(res.status).toBe(200);
+    const eventos = res.body.solicitud_evento as {
+      tipo: string;
+      estado_desde: string | null;
+      estado_hasta: string | null;
+      actor_rol: string;
+      actor_nombre: string | null;
+      detalle: string | null;
+    }[];
+
+    expect(eventos.map((e) => [e.tipo, e.estado_desde, e.estado_hasta])).toEqual([
+      ["creada", null, "pendiente"],
+      ["transicion", "pendiente", "aceptada"],
+      ["transicion", "aceptada", "completada"],
+      ["valoracion", null, null],
+    ]);
+    expect(eventos[0].actor_rol).toBe("PRODUCTOR");
+    expect(eventos[1].actor_rol).toBe("CONTRATISTA");
+    expect(eventos[1].actor_nombre).toBeTruthy();
+    expect(eventos[3].detalle).toContain("4");
+  });
+
+  it("el motivo de la cancelación queda en el historial", async () => {
+    const s = await request(app).post("/solicitudes").set(auth(productor)).send({ id_servicio: servicioId, id_campo: campoId, hectareas_trabajadas: 1 });
+    created.solicitudes.push(s.body.id_solicitud);
+    await request(app).patch(`/solicitudes/${s.body.id_solicitud}/estado`).set(auth(productor)).send({ estado: "cancelada", motivo: "Se pasó la ventana de siembra" });
+    const res = await request(app).get(`/solicitudes/${s.body.id_solicitud}`).set(auth(productor));
+    const ultimo = res.body.solicitud_evento.at(-1);
+    expect(ultimo).toMatchObject({ tipo: "transicion", estado_hasta: "cancelada", actor_rol: "PRODUCTOR", detalle: "Se pasó la ventana de siembra" });
+  });
+
   it("el productor cancela una pendiente con motivo (obligatorio)", async () => {
     const s = await request(app).post("/solicitudes").set(auth(productor)).send({ id_servicio: servicioId, id_campo: campoId, hectareas_trabajadas: 1 });
     solicitud2Id = s.body.id_solicitud;

@@ -1,6 +1,7 @@
 import type { Prisma } from "@repo/db";
 import { hasRole, isAdmin } from "../../core/auth/middleware.js";
 import type { AuthUser } from "../../core/auth/types.js";
+import { actorDe, type EventoActor, type EventoNuevo } from "../../core/events/eventos.js";
 import { badRequest, conflict, forbidden, notFound } from "../../core/errors/errors.js";
 import { toPage, toSkipTake } from "../../core/http/pagination.js";
 import { toCivil, todayCivil } from "../../core/util/dates.js";
@@ -48,6 +49,32 @@ export function calcularImportes<T extends { cantidad: number; precio_referencia
   }));
   const costo_insumos = round2(lineas.reduce((acc, i) => acc + i.cantidad * i.precio_unit, 0));
   return { precio_servicio, costo_insumos, precio_total: round2(precio_servicio + costo_insumos), lineas };
+}
+
+/** Evento de alta de la solicitud. Función pura: se testea sin tocar la base. */
+export function buildEventoAlta(user: AuthUser): EventoNuevo {
+  return {
+    tipo: "creada",
+    estado_hasta: "pendiente",
+    ...actorDe(user, "PRODUCTOR"),
+  };
+}
+
+/** Evento de un cambio de estado, con el motivo cuando corresponde. */
+export function buildEventoTransicion(
+  user: AuthUser,
+  rol: EventoActor,
+  desde: SolicitudEstado,
+  hasta: SolicitudEstado,
+  motivo?: string | null,
+): EventoNuevo {
+  return {
+    tipo: "transicion",
+    estado_desde: desde,
+    estado_hasta: hasta,
+    detalle: motivo ?? null,
+    ...actorDe(user, rol),
+  };
 }
 
 function rolEn(user: AuthUser, s: { id_productor: bigint; id_contratista: bigint }): "PRODUCTOR" | "CONTRATISTA" | "ADMIN" | null {
@@ -113,7 +140,8 @@ export const solicitudService = {
 
     const { lineas, ...importes } = calcularImportes(Number(precio.valor), data.hectareas_trabajadas, insumos);
 
-    return solicitudRepo.create({
+    return solicitudRepo.create(
+      {
       id_servicio: servicio.id_servicio,
       id_productor: user.id_user,
       id_contratista: servicio.id_contratista,
@@ -125,7 +153,9 @@ export const solicitudService = {
       fecha_fin: data.fecha_fin ? toCivil(data.fecha_fin) : null,
       observaciones: data.observaciones ?? null,
       insumos: lineas.map((l) => ({ id_insumo: l.id_insumo, cantidad: l.cantidad, precio_unit: l.precio_unit, proveedor: l.proveedor })),
-    });
+      },
+      buildEventoAlta(user),
+    );
   },
 
   /** Cambio de estado según el ciclo de vida y el rol de quien lo pide. */
@@ -153,7 +183,7 @@ export const solicitudService = {
     const fin = patch.fecha_fin ?? s.fecha_fin;
     if (inicio && fin && fin < inicio) throw badRequest("FECHAS_INVALIDAS", "La fecha de fin es anterior a la de inicio");
 
-    return solicitudRepo.updateEstado(id, patch);
+    return solicitudRepo.updateEstado(id, patch, buildEventoTransicion(user, rol, s.estado, data.estado, patch.motivo));
   },
 
   /** Borrado físico solo para ADMIN (el productor cancela, no borra). */

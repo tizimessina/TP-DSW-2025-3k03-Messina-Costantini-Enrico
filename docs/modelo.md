@@ -39,6 +39,8 @@ erDiagram
     solicitud ||--o{ solicitud_insumo : "requiere"
     insumo ||--o{ solicitud_insumo : ""
     solicitud ||--o| valoracion : "recibe"
+    solicitud ||--o{ solicitud_evento : "historial"
+    users ||--o{ solicitud_evento : "actor de"
 
     provincia {
         bigint id_provincia PK
@@ -151,6 +153,18 @@ erDiagram
         string comentario
         datetime fecha
     }
+    solicitud_evento {
+        bigint id_evento PK
+        bigint id_solicitud FK
+        enum tipo "creada | transicion | valoracion"
+        enum estado_desde "nullable"
+        enum estado_hasta "nullable"
+        bigint id_actor FK "nullable, SET NULL"
+        enum actor_rol "PRODUCTOR | CONTRATISTA | ADMIN | SISTEMA"
+        string actor_nombre "snapshot"
+        string detalle "motivo o comentario"
+        datetime created_at
+    }
 ```
 
 Fuente de verdad: [`packages/database/prisma/schema.prisma`](../packages/database/prisma/schema.prisma). Las restricciones `CHECK` están en la migración `0001_init`. El DER original de la propuesta (abril 2025) se conserva en [img/MODELODEDATOS.png](img/MODELODEDATOS.png) a modo de historia.
@@ -195,6 +209,12 @@ stateDiagram-v2
 ```
 
 - Las fechas son coherentes (`fecha_fin >= fecha_inicio`). El borrado físico de solicitudes es exclusivo de administración.
+
+### Historial de la solicitud
+- Cada alta, cambio de estado y valoración escribe una fila en `solicitud_evento` **dentro de la misma transacción** que el cambio que la origina: no puede existir una transición sin su registro.
+- La tabla es de solo agregado. Guarda el estado de origen y destino, quién lo hizo, con qué rol y con qué motivo, más el nombre del actor congelado al momento del evento, de modo que el historial sobreviva al borrado del usuario.
+- El rol `SISTEMA` queda reservado para lo que dispare el propio backend. Hoy lo usan las solicitudes anteriores a esta tabla, reconstruidas con `pnpm --filter server db:backfill-eventos`, cuyas fechas son aproximadas y se muestran como tales.
+- El detalle de la solicitud devuelve el historial embebido en `solicitud_evento[]`, en orden cronológico.
 
 ### Cercanía
 - `GET /contratistas?id_campo=` filtra por la localidad del campo; si no hay contratistas ahí, amplía a la provincia e informa el alcance aplicado.

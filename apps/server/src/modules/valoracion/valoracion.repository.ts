@@ -1,5 +1,6 @@
 import { prisma, type Prisma } from "@repo/db";
 import { publicUserSelect } from "../../core/db/selects.js";
+import type { EventoNuevo } from "../../core/events/eventos.js";
 
 const include = {
   solicitud: {
@@ -25,5 +26,11 @@ export const valoracionRepo = {
   listByContratista: (id_contratista: bigint) => listWhere({ solicitud: { id_contratista } }),
   listByServicio: (id_servicio: bigint) => listWhere({ solicitud: { id_servicio } }),
   getBySolicitud: (id_solicitud: bigint) => prisma.valoracion.findUnique({ where: { id_solicitud } }),
-  create: (data: { id_solicitud: bigint; puntaje: number; comentario: string | null }) => prisma.valoracion.create({ data, include }),
+  /** La valoración y su entrada en el historial se escriben juntas. */
+  create: (data: { id_solicitud: bigint; puntaje: number; comentario: string | null }, evento: EventoNuevo) =>
+    prisma.$transaction(async (tx) => {
+      const row = await tx.valoracion.create({ data, include });
+      await tx.solicitud_evento.create({ data: { ...evento, id_solicitud: data.id_solicitud } });
+      return row;
+    }),
 };
