@@ -16,7 +16,7 @@ import { servicioRepo } from "../servicio/servicio.repository.js";
 import { campoRepo } from "../campo/campo.repository.js";
 import { precioRepo } from "../precio/precio.repository.js";
 import { insumoRepo } from "../insumo/insumo.repository.js";
-import { buildEventoAlta, buildEventoTransicion, calcularImportes, puedeTransicionar, solicitudService } from "./solicitud.service.js";
+import { buildEventoAlta, buildEventoTransicion, buildNotificacionAlta, buildNotificacionesTransicion, calcularImportes, puedeTransicionar, solicitudService } from "./solicitud.service.js";
 import type { AuthUser } from "../../core/auth/types.js";
 
 const productor: AuthUser = { id_user: 2n, email: "productor@agroapp.dev", nombre: "Carlos", apellido: "Ferreyra", roles: ["PRODUCTOR"] };
@@ -62,8 +62,8 @@ describe("puedeTransicionar (ciclo de vida por rol)", () => {
 describe("solicitudService.create", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(servicioRepo.getById).mockResolvedValue({ id_servicio: 1n, id_contratista: 3n, activo: true } as any);
-    vi.mocked(campoRepo.getById).mockResolvedValue({ id_campo: 1n, id_productor: 2n, hectareas: 120.5 } as any);
+    vi.mocked(servicioRepo.getById).mockResolvedValue({ id_servicio: 1n, id_contratista: 3n, activo: true, nombre: "Siembra directa" } as any);
+    vi.mocked(campoRepo.getById).mockResolvedValue({ id_campo: 1n, id_productor: 2n, hectareas: 120.5, nombre: "La Esperanza" } as any);
     vi.mocked(precioRepo.findVigente).mockResolvedValue({ valor: 45000 } as any);
     vi.mocked(insumoRepo.getManyByIds).mockResolvedValue([{ id_insumo: 1n, precio_referencia: 38000 }] as any);
     vi.mocked(solicitudRepo.create).mockImplementation(async (d) => ({ id_solicitud: 99n, ...d }) as any);
@@ -77,13 +77,14 @@ describe("solicitudService.create", () => {
     expect(solicitudRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({ id_productor: 2n, id_contratista: 3n, precio_hectarea: 45000, precio_servicio: 450000, costo_insumos: 76000, precio_total: 526000 }),
       expect.objectContaining({ tipo: "creada", estado_hasta: "pendiente", id_actor: 2n, actor_rol: "PRODUCTOR" }),
+      [expect.objectContaining({ id_user: 3n, titulo: "Nueva solicitud recibida" })],
     );
     expect(result.id_solicitud).toBe(99n);
   });
 
   it("no cobra los insumos que aporta el productor", async () => {
     await solicitudService.create(productor, { id_servicio: 1n, id_campo: 1n, hectareas_trabajadas: 1, insumos: [{ id_insumo: 1n, cantidad: 5, proveedor: "PRODUCTOR" }] });
-    expect(solicitudRepo.create).toHaveBeenCalledWith(expect.objectContaining({ costo_insumos: 0, precio_total: 45000 }), expect.anything());
+    expect(solicitudRepo.create).toHaveBeenCalledWith(expect.objectContaining({ costo_insumos: 0, precio_total: 45000 }), expect.anything(), expect.anything());
   });
 
   it("rechaza si el campo no pertenece al productor", async () => {
@@ -189,6 +190,49 @@ describe("historial de eventos", () => {
       5n,
       expect.objectContaining({ estado: "aceptada" }),
       expect.objectContaining({ tipo: "transicion", estado_desde: "pendiente", estado_hasta: "aceptada", actor_rol: "CONTRATISTA" }),
+      expect.any(Array),
     );
+  });
+});
+
+describe("avisos en la aplicación", () => {
+  const ctx = { id_productor: 2n, id_contratista: 3n, servicio: "Siembra directa", campo: "La Esperanza" };
+
+  it("el alta le avisa al contratista, no al productor", () => {
+    const n = buildNotificacionAlta("Carlos Ferreyra", ctx, 50);
+    expect(n).toHaveLength(1);
+    expect(n[0].id_user).toBe(3n);
+    expect(n[0].cuerpo).toContain("50 ha");
+    expect(n[0].cuerpo).toContain("La Esperanza");
+  });
+
+  it("cuando el contratista acepta, el aviso va al productor", () => {
+    const n = buildNotificacionesTransicion("CONTRATISTA", "aceptada", "Pedro Molina", ctx);
+    expect(n.map((x) => x.id_user)).toEqual([2n]);
+    expect(n[0].titulo).toBe("Solicitud aceptada");
+  });
+
+  it("cuando el productor cancela, el aviso va al contratista e incluye el motivo", () => {
+    const n = buildNotificacionesTransicion("PRODUCTOR", "cancelada", "Carlos Ferreyra", ctx, "Se pasó la ventana");
+    expect(n.map((x) => x.id_user)).toEqual([3n]);
+    expect(n[0].cuerpo).toContain("Motivo: Se pasó la ventana");
+  });
+
+  it("si interviene un administrador se avisa a las dos partes", () => {
+    const n = buildNotificacionesTransicion("ADMIN", "cancelada", "Ana Duarte", ctx, "Reclamo");
+    expect(n.map((x) => x.id_user).sort()).toEqual([2n, 3n]);
+  });
+
+  it("nunca se avisa a quien hizo el cambio", () => {
+    for (const rol of ["PRODUCTOR", "CONTRATISTA"] as const) {
+      const propio = rol === "PRODUCTOR" ? 2n : 3n;
+      const n = buildNotificacionesTransicion(rol, "cancelada", "X", ctx, "m");
+      expect(n.some((x) => x.id_user === propio)).toBe(false);
+    }
+  });
+
+  it("el cuerpo nunca supera lo que entra en la columna", () => {
+    const largo = { ...ctx, campo: "L".repeat(400) };
+    expect(buildNotificacionesTransicion("CONTRATISTA", "aceptada", "Pedro", largo)[0].cuerpo.length).toBeLessThanOrEqual(300);
   });
 });

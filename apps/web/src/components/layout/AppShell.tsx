@@ -10,6 +10,7 @@ import { cn } from "../../lib/cn";
 import { fullName } from "../../lib/format";
 import { useTheme } from "../../lib/theme";
 import { useFeedback } from "../feedback";
+import { NotificacionesMenu } from "../NotificacionesMenu";
 import { Avatar, RoleBadge } from "../ui";
 
 type Item = { to: string; label: string; icon: ReactNode; end?: boolean };
@@ -234,6 +235,7 @@ function AppLayout() {
           </div>
           <div className="hidden lg:block" />
           <div className="flex items-center gap-1">
+            <NotificacionesMenu />
             <ThemeToggle />
             <UserMenu />
           </div>

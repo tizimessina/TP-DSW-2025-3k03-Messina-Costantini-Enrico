@@ -195,6 +195,44 @@ describe("caso de uso completo", () => {
     expect(eventos[3].detalle).toContain("4");
   });
 
+  it("cada cambio de estado le deja un aviso a la contraparte, y solo a ella", async () => {
+    // El productor recibió los avisos de aceptación y completado; el contratista, el del alta y la valoración.
+    const delProductor = await request(app).get("/notificaciones").set(auth(productor));
+    expect(delProductor.status).toBe(200);
+    const titulos = delProductor.body.items.map((n: { titulo: string }) => n.titulo);
+    expect(titulos).toContain("Solicitud aceptada");
+    expect(titulos).toContain("Trabajo completado");
+    expect(titulos).not.toContain("Nueva solicitud recibida");
+    expect(delProductor.body.no_leidas).toBeGreaterThan(0);
+
+    const delContratista = await request(app).get("/notificaciones").set(auth(contratista));
+    const titulosC = delContratista.body.items.map((n: { titulo: string }) => n.titulo);
+    expect(titulosC).toContain("Nueva solicitud recibida");
+    expect(titulosC).toContain("Recibiste una valoración");
+    expect(titulosC).not.toContain("Solicitud aceptada");
+  });
+
+  it("marcar como leída baja el contador y no deja tocar avisos ajenos", async () => {
+    const antes = await request(app).get("/notificaciones").set(auth(productor));
+    const primera = antes.body.items[0];
+    const leida = await request(app).post(`/notificaciones/${primera.id_notificacion}/leer`).set(auth(productor));
+    expect(leida.status).toBe(200);
+    expect(leida.body.no_leidas).toBe(antes.body.no_leidas - 1);
+
+    // El contratista no puede marcar una notificación del productor: su contador no cambia.
+    const contadorC = (await request(app).get("/notificaciones/no-leidas").set(auth(contratista))).body.no_leidas;
+    await request(app).post(`/notificaciones/${primera.id_notificacion}/leer`).set(auth(contratista));
+    expect((await request(app).get("/notificaciones/no-leidas").set(auth(contratista))).body.no_leidas).toBe(contadorC);
+
+    const todas = await request(app).post("/notificaciones/leer-todas").set(auth(productor));
+    expect(todas.body.no_leidas).toBe(0);
+    expect((await request(app).get("/notificaciones").set(auth(productor)).query({ no_leidas: true })).body.total).toBe(0);
+  });
+
+  it("las notificaciones exigen sesión", async () => {
+    expect((await request(app).get("/notificaciones")).status).toBe(401);
+  });
+
   it("el motivo de la cancelación queda en el historial", async () => {
     const s = await request(app).post("/solicitudes").set(auth(productor)).send({ id_servicio: servicioId, id_campo: campoId, hectareas_trabajadas: 1 });
     created.solicitudes.push(s.body.id_solicitud);

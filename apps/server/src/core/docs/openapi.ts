@@ -20,6 +20,7 @@ import { PrecioCreateSchema, PrecioUpdateSchema } from "../../modules/precio/pre
 import { CampoCreateSchema, CampoQuerySchema, CampoUpdateSchema } from "../../modules/campo/campo.schema.js";
 import { CreateSolicitudInputSchema, SolicitudQuerySchema, UpdateSolicitudEstadoSchema } from "../../modules/solicitud/solicitud.schema.js";
 import { ValoracionCreateSchema, ValoracionQuerySchema } from "../../modules/valoracion/valoracion.schema.js";
+import { NotificacionQuerySchema } from "../../modules/notificacion/notificacion.schema.js";
 
 const registry = new OpenAPIRegistry();
 
@@ -147,6 +148,11 @@ route({ tags: ["Solicitudes"], method: "get", path: "/solicitudes/{id}", summary
 route({ tags: ["Solicitudes"], method: "post", path: "/solicitudes", summary: "Solicitar un servicio (CUU)", description: "Productor autenticado; contratista = dueño del servicio. precio_servicio = precio vigente × hectáreas; los insumos toman el precio de referencia del catálogo y solo suman si los aporta el contratista.", roles: ["PRODUCTOR"], request: { body: json(CreateSolicitudInputSchema, "Datos") }, responses: { 201: json(anyObj, "Solicitud pendiente"), ...errors(400, 404, 409) } });
 route({ tags: ["Solicitudes"], method: "patch", path: "/solicitudes/{id}/estado", summary: "Cambiar estado (CUU)", description: "pendiente → aceptada | rechazada (contratista) | cancelada (productor); aceptada → completada (contratista) | cancelada (ambos, con motivo). Al aceptar se fija fecha_inicio; al completar, fecha_fin. Cada transición escribe una entrada en `solicitud_evento` dentro de la misma transacción.", roles: all, request: { params: IdParam, body: json(UpdateSolicitudEstadoSchema, "Nuevo estado") }, responses: { 200: json(anyObj, "Actualizada"), ...errors(400, 404, 409) } });
 route({ tags: ["Solicitudes"], method: "delete", path: "/solicitudes/{id}", summary: "Eliminar solicitud (solo ADMIN)", roles: ["ADMIN"], request: { params: IdParam }, responses: { 204: { description: "Eliminada" }, ...errors(404) } });
+
+route({ tags: ["Notificaciones"], method: "get", path: "/notificaciones", summary: "Avisos del usuario autenticado", description: "Devuelve la página de avisos más `no_leidas`, el contador para la campana. Con `no_leidas=true` trae solo los pendientes.", roles: all, request: { query: NotificacionQuerySchema }, responses: { 200: json(anyObj, "Listado") } });
+route({ tags: ["Notificaciones"], method: "get", path: "/notificaciones/no-leidas", summary: "Cantidad de avisos sin leer", roles: all, responses: { 200: json(anyObj, "Contador") } });
+route({ tags: ["Notificaciones"], method: "post", path: "/notificaciones/{id}/leer", summary: "Marcar un aviso como leído", description: "Idempotente y acotado al dueño: un aviso ajeno o ya leído responde igual, para no revelar su existencia.", roles: all, request: { params: IdParam }, responses: { 200: json(anyObj, "Contador actualizado") } });
+route({ tags: ["Notificaciones"], method: "post", path: "/notificaciones/leer-todas", summary: "Marcar todos los avisos como leídos", roles: all, responses: { 200: json(anyObj, "Contador actualizado") } });
 
 route({ tags: ["Valoraciones"], method: "get", path: "/valoraciones", summary: "Valoraciones por contratista o por servicio, con promedio", request: { query: ValoracionQuerySchema }, responses: { 200: json(z.object({ items: z.array(anyObj), promedio: z.number().nullable(), cantidad: z.number() }), "Listado") } });
 route({ tags: ["Valoraciones"], method: "post", path: "/valoraciones", summary: "Valorar una solicitud completada (CUU adicional)", roles: ["PRODUCTOR"], request: { body: json(ValoracionCreateSchema, "Datos") }, responses: { 201: json(anyObj, "Creada"), ...errors(400, 404, 409) } });

@@ -57,6 +57,7 @@ model users {
   productor_profile   productor_profile?
   contratista_profile contratista_profile?
   solicitud_evento    solicitud_evento[]
+  notificacion        notificacion[]
 
   @@index([id_localidad], map: "idx_user_localidad")
 }
@@ -206,6 +207,7 @@ model solicitud {
   servicio             servicio            @relation(fields: [id_servicio], references: [id_servicio], map: "fk_sol_servicio")
   solicitud_insumo     solicitud_insumo[]
   solicitud_evento     solicitud_evento[]
+  notificacion         notificacion[]
   valoracion           valoracion?
 
   @@index([id_campo], map: "idx_sol_campo")
@@ -266,6 +268,25 @@ model solicitud_evento {
 
   @@index([id_solicitud, id_evento], map: "idx_ev_solicitud")
   @@index([id_actor], map: "idx_ev_actor")
+}
+
+/// Aviso para un usuario dentro de la aplicación. Se escribe en la misma
+/// transacción que el evento que lo origina, así no hay cambio de estado sin
+/// aviso ni aviso de algo que no pasó.
+model notificacion {
+  id_notificacion BigInt     @id @default(autoincrement()) @db.UnsignedBigInt
+  id_user         BigInt     @db.UnsignedBigInt
+  /// A dónde lleva el aviso; si la solicitud se borra, el aviso se va con ella.
+  id_solicitud    BigInt?    @db.UnsignedBigInt
+  titulo          String     @db.VarChar(160)
+  cuerpo          String     @db.VarChar(300)
+  leida_at        DateTime?  @db.DateTime(3)
+  created_at      DateTime   @default(now()) @db.DateTime(3)
+  users           users      @relation(fields: [id_user], references: [id_user], onDelete: Cascade, map: "fk_notif_user")
+  solicitud       solicitud? @relation(fields: [id_solicitud], references: [id_solicitud], onDelete: Cascade, map: "fk_notif_solicitud")
+
+  /// Soporta tanto el listado como el contador de no leídas.
+  @@index([id_user, leida_at, id_notificacion], map: "idx_notif_user")
 }
 
 /// Valoración del productor sobre una solicitud completada (una por solicitud).

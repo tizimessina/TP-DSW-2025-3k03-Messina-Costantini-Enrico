@@ -41,6 +41,8 @@ erDiagram
     solicitud ||--o| valoracion : "recibe"
     solicitud ||--o{ solicitud_evento : "historial"
     users ||--o{ solicitud_evento : "actor de"
+    solicitud ||--o{ notificacion : "avisa"
+    users ||--o{ notificacion : "recibe"
 
     provincia {
         bigint id_provincia PK
@@ -153,6 +155,15 @@ erDiagram
         string comentario
         datetime fecha
     }
+    notificacion {
+        bigint id_notificacion PK
+        bigint id_user FK
+        bigint id_solicitud FK "nullable"
+        string titulo
+        string cuerpo
+        datetime leida_at "nullable = sin leer"
+        datetime created_at
+    }
     solicitud_evento {
         bigint id_evento PK
         bigint id_solicitud FK
@@ -216,6 +227,12 @@ stateDiagram-v2
 - El rol `SISTEMA` queda reservado para lo que dispare el propio backend. Hoy lo usan las solicitudes anteriores a esta tabla, reconstruidas con `pnpm --filter server db:backfill-eventos`, cuyas fechas son aproximadas y se muestran como tales.
 - El detalle de la solicitud devuelve el historial embebido en `solicitud_evento[]`, en orden cronológico.
 
+### Avisos dentro de la aplicación
+- Cada alta, cambio de estado y valoración deja un aviso en `notificacion`, escrito en la **misma transacción** que el evento.
+- Se avisa siempre a la contraparte y nunca a quien hizo el cambio. Si interviene un administrador, se avisa a las dos partes.
+- Cada usuario solo accede a los suyos. Marcar como leído es idempotente y acotado al dueño: un aviso ajeno o ya leído responde igual, para no revelar su existencia.
+- El frontend consulta cada minuto mientras la pestaña está visible.
+
 ### Cercanía
 - `GET /contratistas?id_campo=` filtra por la localidad del campo; si no hay contratistas ahí, amplía a la provincia e informa el alcance aplicado.
 
@@ -228,5 +245,5 @@ stateDiagram-v2
 | Cercanía | Se resuelve por localidad y provincia del campo. No hay cálculo de distancia por coordenadas. |
 | Disponibilidad | No hay calendario ni control de capacidad: un contratista puede aceptar trabajos superpuestos. |
 | Confirmación del trabajo | La completitud la declara el contratista; el productor responde con la valoración. No hay disputas ni pagos en la plataforma. |
-| Notificaciones | No hay email ni push; cada parte consulta su panel. |
+| Notificaciones | Hay avisos dentro de la aplicación, con campana y contador. Email y push quedan fuera del alcance. |
 | Eliminación de datos | Servicios y solicitudes no se borran (baja lógica y estados finales) para conservar el historial. Solo el administrador puede borrar solicitudes. |
