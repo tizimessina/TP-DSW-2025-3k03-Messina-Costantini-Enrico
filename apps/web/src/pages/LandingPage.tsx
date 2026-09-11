@@ -21,7 +21,7 @@ export default function LandingPage() {
       {/* Hero */}
       <section className="relative overflow-hidden bg-hero-gradient">
         <div className="mx-auto grid max-w-7xl gap-12 px-4 pb-16 pt-14 sm:px-6 lg:grid-cols-2 lg:items-center lg:pb-24 lg:pt-20">
-          <motion.div initial="hidden" animate="show" transition={{ staggerChildren: 0.08 }} className="space-y-6">
+          <motion.div initial="hidden" animate="show" transition={{ staggerChildren: 0.08 }} className="min-w-0 space-y-6">
             <motion.p variants={fade} className="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-white/70 px-3 py-1 text-xs font-semibold text-brand-800 backdrop-blur dark:border-brand-800 dark:bg-stone-900/60 dark:text-brand-200">
               <Sprout className="h-3.5 w-3.5" /> Servicios rurales con precio por hectárea
             </motion.p>
@@ -48,7 +48,7 @@ export default function LandingPage() {
             </motion.ul>
           </motion.div>
 
-          <motion.div initial={{ opacity: 0, scale: 0.96, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ delay: 0.15, duration: 0.5 }} className="relative">
+          <motion.div initial={{ opacity: 0, scale: 0.96, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ delay: 0.15, duration: 0.5 }} className="relative min-w-0">
             <div className="surface space-y-4 p-5 sm:p-6">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-stone-500">Servicios destacados</p>
@@ -63,7 +63,7 @@ export default function LandingPage() {
                         <span className="block truncate text-sm font-semibold">{s.nombre}</span>
                         <span className="block truncate text-xs text-stone-500">{fullName(s.contratista_profile?.users)} · {ubicacion(s.contratista_profile?.users.localidad)}</span>
                       </span>
-                      <span className="text-sm font-bold text-brand-700 dark:text-brand-300">{s.precio_vigente ? `${fmtMoney(s.precio_vigente.valor)}/ha` : "—"}</span>
+                      <span className="shrink-0 text-sm font-bold text-brand-700 dark:text-brand-300">{s.precio_vigente ? `${fmtMoney(s.precio_vigente.valor)}/ha` : "—"}</span>
                     </Link>
                   </li>
                 ))}
