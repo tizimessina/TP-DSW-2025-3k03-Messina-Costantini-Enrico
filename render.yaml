@@ -8,7 +8,7 @@ services:
     region: oregon
     branch: main
     rootDir: .
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @repo/db build && pnpm --filter server build
+    buildCommand: corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm --filter @repo/db build && pnpm --filter server build
     startCommand: node apps/server/dist/index.js
     healthCheckPath: /health
     envVars:
