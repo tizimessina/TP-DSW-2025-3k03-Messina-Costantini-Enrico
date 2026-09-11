@@ -1,0 +1,23 @@
+# Dependencias y artefactos: se reinstalan y recompilan dentro de la imagen.
+node_modules
+**/node_modules
+dist
+**/dist
+.turbo
+**/.turbo
+
+# Nunca copiar archivos de entorno a la imagen: packages/database/.env apunta a
+# la base de producción y no debe salir de esta máquina.
+.env
+**/.env
+*.local
+**/*.local
+
+# Ruido que no aporta al build
+.git
+.github
+.vscode
+*.log
+test-results
+playwright-report
+docs

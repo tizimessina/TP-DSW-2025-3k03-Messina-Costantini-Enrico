@@ -2,6 +2,44 @@
 
 Estas instrucciones permiten correr AgroApp sin conocer cómo está desarrollado.
 
+## Opción rápida: todo con un comando
+
+Si solo se quiere **ver la aplicación funcionando**, con Docker Desktop instalado alcanza con:
+
+```bash
+docker compose up --build
+```
+
+Levanta la base MySQL, le aplica las migraciones, la carga con los datos de demostración y deja
+backend y frontend andando. La primera vez tarda varios minutos porque compila las dos imágenes.
+
+| Servicio | URL |
+|:-|:-|
+| Frontend | http://localhost:8080 |
+| API | http://localhost:3000 |
+| Documentación de la API | http://localhost:3000/docs |
+| Base MySQL | localhost:3307 (base, usuario y contraseña: `agro-dsw`) |
+
+Los usuarios de demostración son los mismos que crea el seed y están más abajo en este documento.
+
+```bash
+docker compose down       # detener
+docker compose down -v    # detener y borrar la base para empezar de cero
+```
+
+Para explorar la base por navegador en http://localhost:8081:
+
+```bash
+docker compose --profile tools up adminer
+```
+
+El resto de esta guía es para **desarrollar**, que necesita las herramientas instaladas en la máquina.
+Quien desarrolle puede usar igual el contenedor de la base y nada más:
+
+```bash
+docker compose up db
+```
+
 ## Requisitos
 
 | Herramienta | Versión | Para qué |
