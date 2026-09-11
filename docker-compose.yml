@@ -1,0 +1,117 @@
+# AgroApp completo con un solo comando:
+#
+#   docker compose up --build
+#
+# Levanta la base MySQL, le aplica las migraciones, la carga con datos de
+# demostración y deja el backend y el frontend andando:
+#
+#   Frontend   http://localhost:8080
+#   API        http://localhost:3000       (documentación en /docs)
+#   Base       localhost:3307              (usuario y base: agro-dsw)
+#
+# Para trabajar en local con `pnpm dev` y usar solo la base de este archivo:
+#   docker compose up db
+#
+# Para abrir un explorador de la base en http://localhost:8081:
+#   docker compose --profile tools up adminer
+
+name: agroapp
+
+services:
+  db:
+    image: percona/percona-server:8.0
+    container_name: agroapp-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: agro-dsw
+      MYSQL_USER: agro-dsw
+      MYSQL_PASSWORD: agro-dsw
+    ports:
+      # 3307 afuera para no chocar con un MySQL ya instalado en la máquina.
+      - "3307:3306"
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      # Hasta que esto no pase, `migrate` no arranca.
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uagro-dsw", "-pagro-dsw"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  # Contenedor de un solo uso: aplica migraciones y carga los datos de demo.
+  # Usa la misma imagen que la API, que conserva el CLI de Prisma.
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    image: agroapp-api
+    container_name: agroapp-migrate
+    restart: "no"
+    environment:
+      DATABASE_URL: mysql://agro-dsw:agro-dsw@db:3306/agro-dsw
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "pnpm --filter @repo/db db:deploy && pnpm --filter @repo/db db:seed"
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    image: agroapp-api
+    container_name: agroapp-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      DATABASE_URL: mysql://agro-dsw:agro-dsw@db:3306/agro-dsw
+      # Secreto de desarrollo. En un despliegue real va por variable de entorno.
+      JWT_SECRET: ${JWT_SECRET:-agroapp-local-9f2c4a7b1e8d6350a4c2f9b7e1d8306c}
+      JWT_EXPIRES_IN: 8h
+      CORS_ORIGIN: http://localhost:8080,http://localhost:5173
+    ports:
+      - "3000:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        # El navegador del host resuelve la API por localhost, no por el nombre
+        # de servicio de la red interna de Docker.
+        VITE_API_URL: http://localhost:3000
+    container_name: agroapp-web
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  adminer:
+    image: adminer:4
+    container_name: agroapp-adminer
+    restart: unless-stopped
+    profiles: ["tools"]
+    environment:
+      ADMINER_DEFAULT_SERVER: db
+    ports:
+      - "8081:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db-data:

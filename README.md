@@ -15,7 +15,18 @@ Plataforma que conecta **productores** agropecuarios con **contratistas** rurale
 ## Stack
 Monorepo **pnpm + Turborepo**. Backend **Node + Express 5 + TypeScript + Prisma + MySQL** (`apps/server`). Frontend **React 18 + Vite + Tailwind + Framer Motion** (`apps/web`). Schema y migraciones en `packages/database`.
 
-## Instalación y ejecución local
+## Ejecución con un solo comando (Docker)
+
+Con Docker Desktop instalado, para ver la aplicación completa funcionando:
+
+```bash
+docker compose up --build
+```
+
+Levanta MySQL, aplica las migraciones, carga los datos de demostración y deja backend y frontend
+andando en http://localhost:8080 y http://localhost:3000. Detalle en [docs/instalacion.md](docs/instalacion.md).
+
+## Instalación y ejecución local (desarrollo)
 
 ### Requisitos
 * Node.js 20 o superior
