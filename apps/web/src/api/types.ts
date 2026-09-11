@@ -173,12 +173,30 @@ export interface SolicitudResumen {
   valoracion?: { puntaje: number } | null;
 }
 
+export type EventoTipo = "creada" | "transicion" | "valoracion";
+export type EventoActor = "PRODUCTOR" | "CONTRATISTA" | "ADMIN" | "SISTEMA";
+
+/** Entrada del historial de una solicitud. Solo lectura: el backend nunca las modifica. */
+export interface SolicitudEvento {
+  id_evento: number;
+  id_solicitud: number;
+  tipo: EventoTipo;
+  estado_desde: SolicitudEstado | null;
+  estado_hasta: SolicitudEstado | null;
+  id_actor: number | null;
+  actor_rol: EventoActor;
+  actor_nombre: string | null;
+  detalle: string | null;
+  created_at: string;
+}
+
 export interface Solicitud extends Omit<SolicitudResumen, "productor_profile" | "contratista_profile" | "valoracion"> {
   servicio?: Servicio & { categoria?: Categoria };
   campo?: Campo;
   productor_profile?: { id_user: number; razon_social?: string | null; users: UsuarioContacto };
   contratista_profile?: { id_user: number; descripcion?: string | null; users: UsuarioContacto };
   solicitud_insumo?: SolicitudInsumo[];
+  solicitud_evento?: SolicitudEvento[];
   valoracion?: Valoracion | null;
 }
 

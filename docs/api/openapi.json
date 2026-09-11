@@ -4693,8 +4693,8 @@
         "tags": [
           "Solicitudes"
         ],
-        "summary": "Detalle completo (con contacto de la contraparte, insumos e importes)",
-        "description": "Requiere rol: ADMIN o PRODUCTOR o CONTRATISTA.",
+        "summary": "Detalle completo (contacto de la contraparte, insumos, importes e historial)",
+        "description": "Incluye `solicitud_evento[]`: el historial en orden cronológico con quién hizo cada cambio de estado, cuándo y con qué motivo.\n\nRequiere rol: ADMIN o PRODUCTOR o CONTRATISTA.",
         "security": [
           {
             "bearerAuth": []
@@ -4829,7 +4829,7 @@
           "Solicitudes"
         ],
         "summary": "Cambiar estado (CUU)",
-        "description": "pendiente → aceptada | rechazada (contratista) | cancelada (productor); aceptada → completada (contratista) | cancelada (ambos, con motivo). Al aceptar se fija fecha_inicio; al completar, fecha_fin.\n\nRequiere rol: ADMIN o PRODUCTOR o CONTRATISTA.",
+        "description": "pendiente → aceptada | rechazada (contratista) | cancelada (productor); aceptada → completada (contratista) | cancelada (ambos, con motivo). Al aceptar se fija fecha_inicio; al completar, fecha_fin. Cada transición escribe una entrada en `solicitud_evento` dentro de la misma transacción.\n\nRequiere rol: ADMIN o PRODUCTOR o CONTRATISTA.",
         "security": [
           {
             "bearerAuth": []

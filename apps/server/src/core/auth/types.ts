@@ -8,6 +8,8 @@ export const BUSINESS_ROLES: RoleName[] = ["PRODUCTOR", "CONTRATISTA"];
 export type AuthUser = {
   id_user: bigint;
   email: string;
+  nombre: string;
+  apellido: string;
   roles: RoleName[];
 };
 

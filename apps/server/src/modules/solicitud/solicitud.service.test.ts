@@ -16,12 +16,12 @@ import { servicioRepo } from "../servicio/servicio.repository.js";
 import { campoRepo } from "../campo/campo.repository.js";
 import { precioRepo } from "../precio/precio.repository.js";
 import { insumoRepo } from "../insumo/insumo.repository.js";
-import { calcularImportes, puedeTransicionar, solicitudService } from "./solicitud.service.js";
+import { buildEventoAlta, buildEventoTransicion, calcularImportes, puedeTransicionar, solicitudService } from "./solicitud.service.js";
 import type { AuthUser } from "../../core/auth/types.js";
 
-const productor: AuthUser = { id_user: 2n, email: "productor@agroapp.dev", roles: ["PRODUCTOR"] };
-const contratista: AuthUser = { id_user: 3n, email: "contratista@agroapp.dev", roles: ["CONTRATISTA"] };
-const admin: AuthUser = { id_user: 1n, email: "admin@agroapp.dev", roles: ["ADMIN"] };
+const productor: AuthUser = { id_user: 2n, email: "productor@agroapp.dev", nombre: "Carlos", apellido: "Ferreyra", roles: ["PRODUCTOR"] };
+const contratista: AuthUser = { id_user: 3n, email: "contratista@agroapp.dev", nombre: "Pedro", apellido: "Molina", roles: ["CONTRATISTA"] };
+const admin: AuthUser = { id_user: 1n, email: "admin@agroapp.dev", nombre: "Ana", apellido: "Duarte", roles: ["ADMIN"] };
 
 describe("calcularImportes", () => {
   it("servicio = precio × hectáreas; solo suman los insumos que aporta el contratista", () => {
@@ -76,13 +76,14 @@ describe("solicitudService.create", () => {
     });
     expect(solicitudRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({ id_productor: 2n, id_contratista: 3n, precio_hectarea: 45000, precio_servicio: 450000, costo_insumos: 76000, precio_total: 526000 }),
+      expect.objectContaining({ tipo: "creada", estado_hasta: "pendiente", id_actor: 2n, actor_rol: "PRODUCTOR" }),
     );
     expect(result.id_solicitud).toBe(99n);
   });
 
   it("no cobra los insumos que aporta el productor", async () => {
     await solicitudService.create(productor, { id_servicio: 1n, id_campo: 1n, hectareas_trabajadas: 1, insumos: [{ id_insumo: 1n, cantidad: 5, proveedor: "PRODUCTOR" }] });
-    expect(solicitudRepo.create).toHaveBeenCalledWith(expect.objectContaining({ costo_insumos: 0, precio_total: 45000 }));
+    expect(solicitudRepo.create).toHaveBeenCalledWith(expect.objectContaining({ costo_insumos: 0, precio_total: 45000 }), expect.anything());
   });
 
   it("rechaza si el campo no pertenece al productor", async () => {
@@ -147,7 +148,47 @@ describe("solicitudService.updateEstado", () => {
   });
 
   it("un tercero no puede ver ni tocar la solicitud", async () => {
-    const otro: AuthUser = { id_user: 9n, email: "x@x.dev", roles: ["PRODUCTOR"] };
+    const otro: AuthUser = { id_user: 9n, email: "x@x.dev", nombre: "Otro", apellido: "Usuario", roles: ["PRODUCTOR"] };
     await expect(solicitudService.updateEstado(otro, 5n, { estado: "cancelada", motivo: "x" })).rejects.toMatchObject({ status: 403 });
+  });
+});
+
+describe("historial de eventos", () => {
+  it("el alta registra quién creó la solicitud y con qué nombre", () => {
+    const e = buildEventoAlta(productor);
+    expect(e).toMatchObject({ tipo: "creada", estado_hasta: "pendiente", id_actor: 2n, actor_rol: "PRODUCTOR", actor_nombre: "Carlos Ferreyra" });
+  });
+
+  it("la transición guarda estado de origen, destino y motivo", () => {
+    const e = buildEventoTransicion(contratista, "CONTRATISTA", "pendiente", "rechazada", "No llego con la máquina");
+    expect(e).toMatchObject({
+      tipo: "transicion",
+      estado_desde: "pendiente",
+      estado_hasta: "rechazada",
+      detalle: "No llego con la máquina",
+      id_actor: 3n,
+      actor_rol: "CONTRATISTA",
+      actor_nombre: "Pedro Molina",
+    });
+  });
+
+  it("sin motivo, el detalle queda nulo", () => {
+    expect(buildEventoTransicion(contratista, "CONTRATISTA", "pendiente", "aceptada").detalle).toBeNull();
+  });
+
+  it("un admin que interviene queda registrado como ADMIN", () => {
+    expect(buildEventoTransicion(admin, "ADMIN", "aceptada", "cancelada", "Reclamo").actor_rol).toBe("ADMIN");
+  });
+
+  it("cada cambio de estado escribe su evento junto al cambio", async () => {
+    vi.clearAllMocks();
+    vi.mocked(solicitudRepo.getById).mockResolvedValue({ id_solicitud: 5n, id_productor: 2n, id_contratista: 3n, estado: "pendiente", fecha_inicio: null, fecha_fin: null } as any);
+    vi.mocked(solicitudRepo.updateEstado).mockResolvedValue({} as any);
+    await solicitudService.updateEstado(contratista, 5n, { estado: "aceptada" });
+    expect(solicitudRepo.updateEstado).toHaveBeenCalledWith(
+      5n,
+      expect.objectContaining({ estado: "aceptada" }),
+      expect.objectContaining({ tipo: "transicion", estado_desde: "pendiente", estado_hasta: "aceptada", actor_rol: "CONTRATISTA" }),
+    );
   });
 });

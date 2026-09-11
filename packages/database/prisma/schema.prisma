@@ -56,6 +56,7 @@ model users {
   user_roles          user_roles[]
   productor_profile   productor_profile?
   contratista_profile contratista_profile?
+  solicitud_evento    solicitud_evento[]
 
   @@index([id_localidad], map: "idx_user_localidad")
 }
@@ -204,6 +205,7 @@ model solicitud {
   contratista_profile  contratista_profile @relation(fields: [id_contratista], references: [id_user], map: "fk_sol_contratista")
   servicio             servicio            @relation(fields: [id_servicio], references: [id_servicio], map: "fk_sol_servicio")
   solicitud_insumo     solicitud_insumo[]
+  solicitud_evento     solicitud_evento[]
   valoracion           valoracion?
 
   @@index([id_campo], map: "idx_sol_campo")
@@ -225,6 +227,45 @@ model solicitud_insumo {
 
   @@unique([id_solicitud, id_insumo], map: "uk_si_solicitud_insumo")
   @@index([id_insumo], map: "idx_si_insumo")
+}
+
+enum evento_tipo {
+  creada
+  transicion
+  valoracion
+}
+
+/// Quién originó el evento. SISTEMA queda para lo que dispare el propio backend.
+enum evento_actor {
+  PRODUCTOR
+  CONTRATISTA
+  ADMIN
+  SISTEMA
+}
+
+/// Historial de una solicitud. Solo se agrega, nunca se modifica: es la fuente de
+/// verdad de la línea de tiempo y deja registrado quién hizo cada cambio de estado.
+/// Se escribe en la misma transacción que el cambio, así no puede haber una
+/// transición sin su evento.
+model solicitud_evento {
+  id_evento    BigInt            @id @default(autoincrement()) @db.UnsignedBigInt
+  id_solicitud BigInt            @db.UnsignedBigInt
+  tipo         evento_tipo
+  estado_desde solicitud_estado?
+  estado_hasta solicitud_estado?
+  id_actor     BigInt?           @db.UnsignedBigInt
+  actor_rol    evento_actor
+  /// Nombre del actor al momento del evento: el historial sobrevive al borrado del usuario.
+  actor_nombre String?           @db.VarChar(201)
+  /// Motivo de rechazo o cancelación, o comentario de la valoración.
+  detalle      String?           @db.VarChar(500)
+  /// Con milisegundos: dos transiciones pueden caer en el mismo segundo.
+  created_at   DateTime          @default(now()) @db.DateTime(3)
+  solicitud    solicitud         @relation(fields: [id_solicitud], references: [id_solicitud], onDelete: Cascade, map: "fk_ev_solicitud")
+  actor        users?            @relation(fields: [id_actor], references: [id_user], onDelete: SetNull, map: "fk_ev_actor")
+
+  @@index([id_solicitud, id_evento], map: "idx_ev_solicitud")
+  @@index([id_actor], map: "idx_ev_actor")
 }
 
 /// Valoración del productor sobre una solicitud completada (una por solicitud).

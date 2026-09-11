@@ -11,6 +11,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
     "docs:export": "tsx scripts/export-openapi.ts",
+    "db:backfill-eventos": "tsx scripts/backfill-eventos.ts",
     "start": "node dist/index.js"
   },
   "keywords": [],

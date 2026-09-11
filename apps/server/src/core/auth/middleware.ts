@@ -13,10 +13,16 @@ function extractBearer(req: Request): string | null {
 export async function loadAuthUser(id_user: bigint): Promise<AuthUser | null> {
   const u = await prisma.users.findUnique({
     where: { id_user },
-    select: { id_user: true, email: true, user_roles: { select: { roles: { select: { name: true } } } } },
+    select: { id_user: true, email: true, nombre: true, apellido: true, user_roles: { select: { roles: { select: { name: true } } } } },
   });
   if (!u) return null;
-  return { id_user: u.id_user, email: u.email, roles: u.user_roles.map((r) => r.roles.name as RoleName) };
+  return {
+    id_user: u.id_user,
+    email: u.email,
+    nombre: u.nombre,
+    apellido: u.apellido,
+    roles: u.user_roles.map((r) => r.roles.name as RoleName),
+  };
 }
 
 /** Exige un JWT válido y un usuario existente; deja el usuario (con roles vigentes) en `req.user`. */
