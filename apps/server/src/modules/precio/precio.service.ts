@@ -1,15 +1,18 @@
 import { assertOwnerOrAdmin } from "../../core/auth/middleware.js";
 import type { AuthUser } from "../../core/auth/types.js";
+import { conflict, notFound, translatePrisma } from "../../core/errors/errors.js";
+import { toCivil, todayCivil } from "../../core/util/dates.js";
 import { servicioRepo } from "../servicio/servicio.repository.js";
 import { precioRepo } from "./precio.repository.js";
 import type { PrecioCreateDTO, PrecioUpdateDTO } from "./precio.schema.js";
 
-const NOT_OWNER = "Solo el prestamista dueño del servicio puede gestionar sus precios";
+const NOT_OWNER = "Solo el contratista dueño del servicio puede gestionar sus precios";
+const DUP = conflict("DUPLICATE", "Ya existe un precio para ese servicio y fecha");
 
 async function assertServicioOwner(user: AuthUser, id_servicio: bigint) {
   const servicio = await servicioRepo.getById(id_servicio);
-  if (!servicio) throw { status: 404, code: "NOT_FOUND", message: "Servicio no encontrado" };
-  assertOwnerOrAdmin(user, servicio.id_prestamista, NOT_OWNER);
+  if (!servicio) throw notFound("Servicio no encontrado");
+  assertOwnerOrAdmin(user, servicio.id_contratista, NOT_OWNER);
   return servicio;
 }
 
@@ -18,44 +21,36 @@ export const precioService = {
 
   getVigente: async (id_servicio: bigint) => {
     const p = await precioRepo.findVigente(id_servicio);
-    if (!p) throw { status: 404, code: "NO_PRICE", message: "El servicio no tiene un precio vigente" };
+    if (!p) throw notFound("El servicio no tiene un precio vigente");
     return p;
   },
 
   getById: async (id: bigint) => {
     const p = await precioRepo.getById(id);
-    if (!p) throw { status: 404, code: "NOT_FOUND", message: "Precio no encontrado" };
+    if (!p) throw notFound("Precio no encontrado");
     return p;
   },
 
   create: async (user: AuthUser, dto: PrecioCreateDTO) => {
     await assertServicioOwner(user, dto.id_servicio);
-    try {
-      return await precioRepo.create(dto);
-    } catch (e: any) {
-      if (e?.code === "P2002") {
-        throw { status: 409, code: "DUPLICATE", message: "Ya existe un precio para ese servicio y fecha" };
-      }
-      throw e;
-    }
+    return precioRepo.create({ ...dto, fecha_desde: toCivil(dto.fecha_desde) }).catch((e) => translatePrisma(e, { P2002: DUP }));
   },
 
   update: async (user: AuthUser, id: bigint, dto: PrecioUpdateDTO) => {
     const precio = await precioService.getById(id);
-    assertOwnerOrAdmin(user, precio.servicio.id_prestamista, NOT_OWNER);
-    try {
-      return await precioRepo.update(id, dto);
-    } catch (e: any) {
-      if (e?.code === "P2002") {
-        throw { status: 409, code: "DUPLICATE", message: "Ya existe un precio con esa fecha" };
-      }
-      throw e;
-    }
+    assertOwnerOrAdmin(user, precio.servicio.id_contratista, NOT_OWNER);
+    return precioRepo
+      .update(id, { ...dto, ...(dto.fecha_desde ? { fecha_desde: toCivil(dto.fecha_desde) } : {}) })
+      .catch((e) => translatePrisma(e, { P2002: DUP }));
   },
 
+  /** No se puede borrar el único precio vigente de un servicio activo: quedaría insolicitable. */
   remove: async (user: AuthUser, id: bigint) => {
     const precio = await precioService.getById(id);
-    assertOwnerOrAdmin(user, precio.servicio.id_prestamista, NOT_OWNER);
+    assertOwnerOrAdmin(user, precio.servicio.id_contratista, NOT_OWNER);
+    if (precio.servicio.activo && precio.fecha_desde <= todayCivil() && (await precioRepo.countVigentes(precio.id_servicio)) <= 1) {
+      throw conflict("LAST_PRICE", "Es el único precio vigente del servicio: cargá otro o desactivá el servicio antes de borrarlo");
+    }
     await precioRepo.remove(id);
     return { ok: true };
   },

@@ -1,40 +1,40 @@
-import { Request, Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 import {
   CategoriaServicioCreateSchema,
   CategoriaServicioIdSchema,
+  CategoriaServicioQuerySchema,
   CategoriaServicioUpdateSchema,
 } from "./categoria-servicio.schema.js";
 import { categoriaServicioService } from "./categoria-servicio.service.js";
 
 export const CategoriaServicioController = {
-  list: async (req: Request, res: Response) => {
-    const { q } = req.query as any;
-    const data = await categoriaServicioService.list(q);
-    res.json(data);
+  list: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { q } = CategoriaServicioQuerySchema.parse(req.query);
+      res.json(await categoriaServicioService.list(q));
+    } catch (e) { next(e); }
   },
-
-  get: async (req: Request, res: Response) => {
-    const { id } = CategoriaServicioIdSchema.parse(req.params);
-    const data = await categoriaServicioService.getById(BigInt(id));
-    res.json(data);
+  get: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = CategoriaServicioIdSchema.parse(req.params);
+      res.json(await categoriaServicioService.getById(id));
+    } catch (e) { next(e); }
   },
-
-  create: async (req: Request, res: Response) => {
-    const dto = CategoriaServicioCreateSchema.parse(req.body);
-    const data = await categoriaServicioService.create(dto);
-    res.status(201).json(data);
+  create: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.status(201).json(await categoriaServicioService.create(CategoriaServicioCreateSchema.parse(req.body)));
+    } catch (e) { next(e); }
   },
-
-  update: async (req: Request, res: Response) => {
-    const { id } = CategoriaServicioIdSchema.parse(req.params);
-    const dto = CategoriaServicioUpdateSchema.parse(req.body);
-    const data = await categoriaServicioService.update(BigInt(id), dto);
-    res.json(data);
+  update: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = CategoriaServicioIdSchema.parse(req.params);
+      res.json(await categoriaServicioService.update(id, CategoriaServicioUpdateSchema.parse(req.body)));
+    } catch (e) { next(e); }
   },
-
-  remove: async (req: Request, res: Response) => {
-    const { id } = CategoriaServicioIdSchema.parse(req.params);
-    const data = await categoriaServicioService.remove(BigInt(id));
-    res.json(data);
+  remove: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = CategoriaServicioIdSchema.parse(req.params);
+      res.json(await categoriaServicioService.remove(id));
+    } catch (e) { next(e); }
   },
 };

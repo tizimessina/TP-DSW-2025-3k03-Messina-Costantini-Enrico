@@ -8,5 +8,7 @@ r.post("/login", c.login);
 r.post("/register", c.register);
 r.get("/me", requireAuth, c.me);
 r.put("/me", requireAuth, c.updateMe);
+r.put("/me/password", requireAuth, c.changePassword);
+r.get("/me/resumen", requireAuth, c.resumen);
 
 export default r;

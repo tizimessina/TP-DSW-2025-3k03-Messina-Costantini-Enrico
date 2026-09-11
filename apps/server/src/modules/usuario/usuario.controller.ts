@@ -1,17 +1,10 @@
-import { Request, Response, NextFunction } from 'express';
-import { UsuarioCreateSchema, UsuarioParamsSchema, UsuarioUpdateSchema } from './usuario.schema.js';
+import type { NextFunction, Request, Response } from 'express';
+import { UsuarioCreateSchema, UsuarioParamsSchema, UsuarioQuerySchema, UsuarioUpdateSchema } from './usuario.schema.js';
 import { usuarioService } from './usuario.service.js';
 
 export const list = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const q = typeof req.query.q === 'string' ? req.query.q : undefined;
-    const id_localidad = typeof req.query.id_localidad === 'string'
-      ? BigInt(req.query.id_localidad)
-      : undefined;
-    const role = typeof req.query.role === 'string' ? req.query.role : undefined;
-
-    const data = await usuarioService.list(q, id_localidad, role);
-    res.json(data);
+    res.json(await usuarioService.list(UsuarioQuerySchema.parse(req.query)));
   } catch (e) { next(e); }
 };
 
@@ -24,17 +17,14 @@ export const getById = async (req: Request, res: Response, next: NextFunction) =
 
 export const create = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const dto = UsuarioCreateSchema.parse(req.body);
-    const created = await usuarioService.create(dto);
-    res.status(201).json(created);
+    res.status(201).json(await usuarioService.create(UsuarioCreateSchema.parse(req.body)));
   } catch (e) { next(e); }
 };
 
 export const update = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = UsuarioParamsSchema.parse(req.params);
-    const dto = UsuarioUpdateSchema.parse(req.body);
-    res.json(await usuarioService.update(id, dto));
+    res.json(await usuarioService.update(id, UsuarioUpdateSchema.parse(req.body)));
   } catch (e) { next(e); }
 };
 

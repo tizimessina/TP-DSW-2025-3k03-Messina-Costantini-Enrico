@@ -1,71 +1,68 @@
-import { assertOwnerOrAdmin, hasRole, isAdmin } from "../../core/auth/middleware.js";
+import type { Prisma } from "@repo/db";
+import { assertOwnerOrAdmin, isAdmin } from "../../core/auth/middleware.js";
 import type { AuthUser } from "../../core/auth/types.js";
+import { badRequest, notFound, translatePrisma } from "../../core/errors/errors.js";
+import { toPage, toSkipTake } from "../../core/http/pagination.js";
 import { servicioRepo } from "./servicio.repository.js";
-import type { ServicioCreateDTO, ServicioUpdateDTO } from "./servicio.schema.js";
+import type { ServicioCreateDTO, ServicioQuery, ServicioUpdateDTO } from "./servicio.schema.js";
 
-const NOT_OWNER = "Solo el prestamista dueño del servicio puede modificarlo";
+const NOT_OWNER = "Solo el contratista dueño del servicio puede modificarlo";
+const FK = badRequest("FK_INVALID", "La categoría no existe");
+
+/** Normaliza la salida: `precio_vigente` explícito en vez del array `precio`. */
+function withVigente<T extends { precio: { valor: unknown; fecha_desde: Date }[]; _count?: { solicitud: number } }>(s: T) {
+  const { precio, _count, ...rest } = s;
+  return { ...rest, precio_vigente: precio[0] ?? null, trabajos_completados: _count?.solicitud ?? 0 };
+}
 
 export const servicioService = {
-  list: (q?: string, id_categoria?: bigint, id_prestamista?: bigint) =>
-    servicioRepo.list(q, id_categoria, id_prestamista),
-
-  getById: async (id: bigint) => {
-    const s = await servicioRepo.getById(id);
-    if (!s) throw { status: 404, code: "NOT_FOUND", message: "Servicio no encontrado" };
-    return s;
+  list: async (q: ServicioQuery, user?: AuthUser) => {
+    const esDuenio = !!user && q.id_contratista === user.id_user;
+    const verInactivos = q.incluir_inactivos && (esDuenio || isAdmin(user));
+    const where: Prisma.servicioWhereInput = {
+      ...(verInactivos ? {} : { activo: true }),
+      ...(q.q ? { OR: [{ nombre: { contains: q.q } }, { descripcion: { contains: q.q } }] } : {}),
+      ...(q.id_categoria ? { id_categoria: q.id_categoria } : {}),
+      ...(q.id_contratista ? { id_contratista: q.id_contratista } : {}),
+      ...(q.id_localidad
+        ? { contratista_profile: { users: { id_localidad: q.id_localidad } } }
+        : q.id_provincia
+          ? { contratista_profile: { users: { localidad: { id_provincia: q.id_provincia } } } }
+          : {}),
+    };
+    const { skip, take } = toSkipTake(q);
+    const { items, total } = await servicioRepo.list(where, skip, take);
+    return toPage(items.map(withVigente), total, q);
   },
 
-  create: async (user: AuthUser, dto: ServicioCreateDTO) => {
-    // Un PRESTAMISTA solo publica servicios propios; un ADMIN puede indicar el dueño.
-    let id_prestamista: bigint;
-    if (isAdmin(user) && dto.id_prestamista) {
-      id_prestamista = dto.id_prestamista;
-    } else if (hasRole(user, "PRESTAMISTA")) {
-      id_prestamista = user.id_user;
-    } else {
-      throw { status: 400, code: "PRESTAMISTA_REQUIRED", message: "Indicá el prestamista dueño del servicio" };
-    }
+  getById: async (id: bigint, user?: AuthUser) => {
+    const s = await servicioRepo.getById(id);
+    if (!s) throw notFound("Servicio no encontrado");
+    if (!s.activo && !(user && (isAdmin(user) || user.id_user === s.id_contratista))) throw notFound("Servicio no encontrado");
+    const { precio, _count, ...rest } = s;
+    const hoy = new Date();
+    return {
+      ...rest,
+      precios: precio,
+      precio_vigente: precio.find((p) => p.fecha_desde <= hoy) ?? null,
+      trabajos_completados: _count.solicitud,
+    };
+  },
 
-    try {
-      return await servicioRepo.create({ ...dto, id_prestamista });
-    } catch (e: any) {
-      if (e?.code === "P2003") {
-        throw { status: 400, code: "FK_INVALID", message: "Verificá la categoría y el prestamista" };
-      }
-      throw e;
-    }
+  /** El servicio siempre pertenece al contratista autenticado. */
+  create: async (user: AuthUser, dto: ServicioCreateDTO) => {
+    const row = await servicioRepo.create({ ...dto, id_contratista: user.id_user }).catch((e) => translatePrisma(e, { P2003: FK }));
+    return withVigente(row);
   },
 
   update: async (user: AuthUser, id: bigint, dto: ServicioUpdateDTO) => {
-    const existing = await servicioService.getById(id);
-    assertOwnerOrAdmin(user, existing.id_prestamista, NOT_OWNER);
-    // Solo ADMIN puede transferir el servicio a otro prestamista
-    const data = isAdmin(user) ? dto : { ...dto, id_prestamista: undefined };
-    try {
-      return await servicioRepo.update(id, data);
-    } catch (e: any) {
-      if (e?.code === "P2003") {
-        throw { status: 400, code: "FK_INVALID", message: "Verificá la categoría y el prestamista" };
-      }
-      throw e;
-    }
+    const existing = await servicioRepo.getById(id);
+    if (!existing) throw notFound("Servicio no encontrado");
+    assertOwnerOrAdmin(user, existing.id_contratista, NOT_OWNER);
+    const row = await servicioRepo.update(id, dto).catch((e) => translatePrisma(e, { P2003: FK }));
+    return withVigente(row);
   },
 
-  remove: async (user: AuthUser, id: bigint) => {
-    const existing = await servicioService.getById(id);
-    assertOwnerOrAdmin(user, existing.id_prestamista, NOT_OWNER);
-    try {
-      await servicioRepo.remove(id);
-      return { ok: true };
-    } catch (e: any) {
-      if (e?.code === "P2003") {
-        throw {
-          status: 409,
-          code: "IN_USE",
-          message: "No se puede eliminar: existen solicitudes asociadas a este servicio",
-        };
-      }
-      throw e;
-    }
-  },
+  /** Baja lógica: el servicio deja de aparecer en el catálogo pero conserva su historial. */
+  desactivar: (user: AuthUser, id: bigint) => servicioService.update(user, id, { activo: false }),
 };

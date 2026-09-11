@@ -1,67 +1,28 @@
+import { conflict, notFound, translatePrisma } from "../../core/errors/errors.js";
 import { categoriaServicioRepo } from "./categoria-servicio.repository.js";
-import type {
-  CategoriaServicioCreateDTO,
-  CategoriaServicioUpdateDTO,
-} from "./categoria-servicio.schema.ts";
+import type { CategoriaServicioCreateDTO, CategoriaServicioUpdateDTO } from "./categoria-servicio.schema.js";
+
+const DUP = conflict("DUPLICATE", "Ya existe una categoría con ese nombre");
+const NF = notFound("Categoría no encontrada");
 
 export const categoriaServicioService = {
   list: (q?: string) => categoriaServicioRepo.list(q),
 
   getById: async (id: bigint) => {
     const cat = await categoriaServicioRepo.getById(id);
-    if (!cat) throw new Error("Categoría no encontrada");
+    if (!cat) throw NF;
     return cat;
   },
 
-  create: async (dto: CategoriaServicioCreateDTO) => {
-    try {
-      return await categoriaServicioRepo.create(dto);
-    } catch (e: any) {
-      if (e?.code === "P2002") {
-        const err = new Error("Ya existe una categoría con ese nombre");
-        (err as any).status = 409;
-        throw err;
-      }
-      throw e;
-    }
-  },
+  create: (dto: CategoriaServicioCreateDTO) => categoriaServicioRepo.create(dto).catch((e) => translatePrisma(e, { P2002: DUP })),
 
-  update: async (id: bigint, dto: CategoriaServicioUpdateDTO) => {
-    try {
-      return await categoriaServicioRepo.update(id, dto);
-    } catch (e: any) {
-      if (e?.code === "P2025") {
-        const err = new Error("Categoría no encontrada");
-        (err as any).status = 404;
-        throw err;
-      }
-      if (e?.code === "P2002") {
-        const err = new Error("Ya existe una categoría con ese nombre");
-        (err as any).status = 409;
-        throw err;
-      }
-      throw e;
-    }
-  },
+  update: (id: bigint, dto: CategoriaServicioUpdateDTO) =>
+    categoriaServicioRepo.update(id, dto).catch((e) => translatePrisma(e, { P2025: NF, P2002: DUP })),
 
   remove: async (id: bigint) => {
-    try {
-      await categoriaServicioRepo.remove(id);
-      return { ok: true };
-    } catch (e: any) {
-      if (e?.code === "P2025") {
-        const err = new Error("Categoría no encontrada");
-        (err as any).status = 404;
-        throw err;
-      }
-      if (e?.code === "P2003") {
-        const err = new Error(
-          "No se puede eliminar: existen servicios asociados a esta categoría"
-        );
-        (err as any).status = 409;
-        throw err;
-      }
-      throw e;
-    }
+    await categoriaServicioRepo
+      .remove(id)
+      .catch((e) => translatePrisma(e, { P2025: NF, P2003: conflict("IN_USE", "No se puede eliminar: existen servicios en esta categoría") }));
+    return { ok: true };
   },
 };

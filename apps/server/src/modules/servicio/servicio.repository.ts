@@ -1,81 +1,49 @@
-import { prisma } from '@repo/db';
+import { prisma, type Prisma } from '@repo/db';
 import { publicUserSelect } from '../../core/db/selects.js';
+import { todayCivil } from '../../core/util/dates.js';
 
-const servicioInclude = {
+/** Solo el precio vigente (mayor fecha_desde <= hoy). */
+const precioVigente = () => ({ where: { fecha_desde: { lte: todayCivil() } }, orderBy: { fecha_desde: 'desc' as const }, take: 1 });
+
+const listInclude = () => ({
   categoria: true,
-  prestamista_profile: { include: { users: { select: publicUserSelect } } },
-  // último precio cargado (el front lo muestra como "precio actual")
-  precio: { orderBy: { fecha_desde: 'desc' as const }, take: 1 },
-};
+  contratista_profile: { include: { users: { select: publicUserSelect } } },
+  precio: precioVigente(),
+  _count: { select: { solicitud: { where: { estado: 'completada' as const } } } },
+});
 
 export const servicioRepo = {
-  list: (q?: string, id_categoria?: bigint, id_prestamista?: bigint) =>
-    prisma.servicio.findMany({
-      where: {
-        ...(q
-          ? {
-              OR: [
-                { nombre: { contains: q } },
-                { descripcion: { contains: q } },
-              ],
-            }
-          : {}),
-        ...(id_categoria ? { id_categoria } : {}),
-        ...(id_prestamista ? { id_prestamista } : {}),
-      },
-      orderBy: [{ nombre: 'asc' }],
-      include: servicioInclude,
-    }),
+  list: async (where: Prisma.servicioWhereInput, skip: number, take: number) => {
+    const [items, total] = await Promise.all([
+      prisma.servicio.findMany({ where, skip, take, orderBy: [{ nombre: 'asc' }], include: listInclude() }),
+      prisma.servicio.count({ where }),
+    ]);
+    return { items, total };
+  },
 
   getById: (id: bigint) =>
     prisma.servicio.findUnique({
       where: { id_servicio: id },
       include: {
-        ...servicioInclude,
+        categoria: true,
+        contratista_profile: { include: { users: { select: publicUserSelect } } },
         precio: { orderBy: { fecha_desde: 'desc' } }, // historial completo en el detalle
+        _count: { select: { solicitud: { where: { estado: 'completada' } } } },
       },
     }),
 
-  create: (data: {
-    nombre: string;
-    descripcion?: string | null;
-    id_categoria: bigint;
-    id_prestamista: bigint;
-    precio_inicial?: number;
-  }) =>
+  create: (data: { nombre: string; descripcion?: string | null; id_categoria: bigint; id_contratista: bigint; precio_inicial?: number }) =>
     prisma.servicio.create({
       data: {
         nombre: data.nombre,
         descripcion: data.descripcion ?? null,
         id_categoria: data.id_categoria,
-        id_prestamista: data.id_prestamista,
-        ...(data.precio_inicial
-          ? { precio: { create: { fecha_desde: new Date(), valor: data.precio_inicial } } }
-          : {}),
+        id_contratista: data.id_contratista,
+        ...(data.precio_inicial ? { precio: { create: { fecha_desde: todayCivil(), valor: data.precio_inicial } } } : {}),
       },
-      include: servicioInclude,
+      include: listInclude(),
     }),
 
-  update: (id: bigint, data: {
-    nombre?: string;
-    descripcion?: string | null;
-    id_categoria?: bigint;
-    id_prestamista?: bigint;
-  }) =>
-    prisma.servicio.update({
-      where: { id_servicio: id },
-      data: {
-        ...(data.nombre !== undefined ? { nombre: data.nombre } : {}),
-        ...(data.descripcion !== undefined ? { descripcion: data.descripcion } : {}),
-        ...(data.id_categoria !== undefined ? { id_categoria: data.id_categoria } : {}),
-        ...(data.id_prestamista !== undefined ? { id_prestamista: data.id_prestamista } : {}),
-        updated_at: new Date(),
-      },
-      include: servicioInclude,
-    }),
-
-  remove: (id: bigint) =>
-    prisma.servicio.delete({
-      where: { id_servicio: id },
-    }),
+  update: (id: bigint, data: { nombre?: string; descripcion?: string | null; id_categoria?: bigint; activo?: boolean }) =>
+    prisma.servicio.update({ where: { id_servicio: id }, data, include: listInclude() }),
 };

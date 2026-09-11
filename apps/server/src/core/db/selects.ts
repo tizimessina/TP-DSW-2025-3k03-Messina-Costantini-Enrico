@@ -1,13 +1,20 @@
 /**
- * Selects reutilizables para no filtrar `password_hash` ni datos sensibles
- * cuando se incluyen usuarios dentro de otras entidades.
+ * Selects reutilizables para incluir usuarios dentro de otras entidades.
+ * - `publicUserSelect`: lo que ve cualquiera (listados y perfiles públicos): sin contacto.
+ * - `contactUserSelect`: lo que ven las dos partes de una solicitud: con email, teléfono y domicilio.
+ * Nunca incluyen `password_hash`.
  */
 export const publicUserSelect = {
   id_user: true,
-  email: true,
   nombre: true,
   apellido: true,
-  domicilio: true,
   id_localidad: true,
   localidad: { include: { provincia: true } },
+} as const;
+
+export const contactUserSelect = {
+  ...publicUserSelect,
+  email: true,
+  telefono: true,
+  domicilio: true,
 } as const;

@@ -1,36 +1,35 @@
-import { Request, Response } from "express";
-import { InsumoCreateSchema, InsumoIdSchema, InsumoUpdateSchema } from "./insumo.schema.js";
+import type { NextFunction, Request, Response } from "express";
+import { InsumoCreateSchema, InsumoIdSchema, InsumoQuerySchema, InsumoUpdateSchema } from "./insumo.schema.js";
 import { insumoService } from "./insumo.service.js";
 
 export const InsumoController = {
-  list: async (req: Request, res: Response) => {
-    const { q } = req.query as any;
-    const data = await insumoService.list(q);
-    res.json(data);
+  list: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { q } = InsumoQuerySchema.parse(req.query);
+      res.json(await insumoService.list(q));
+    } catch (e) { next(e); }
   },
-
-  get: async (req: Request, res: Response) => {
-    const { id } = InsumoIdSchema.parse(req.params);
-    const data = await insumoService.getById(BigInt(id));
-    res.json(data);
+  get: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = InsumoIdSchema.parse(req.params);
+      res.json(await insumoService.getById(id));
+    } catch (e) { next(e); }
   },
-
-  create: async (req: Request, res: Response) => {
-    const dto = InsumoCreateSchema.parse(req.body);
-    const data = await insumoService.create(dto);
-    res.status(201).json(data);
+  create: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.status(201).json(await insumoService.create(InsumoCreateSchema.parse(req.body)));
+    } catch (e) { next(e); }
   },
-
-  update: async (req: Request, res: Response) => {
-    const { id } = InsumoIdSchema.parse(req.params);
-    const dto = InsumoUpdateSchema.parse(req.body);
-    const data = await insumoService.update(BigInt(id), dto);
-    res.json(data);
+  update: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = InsumoIdSchema.parse(req.params);
+      res.json(await insumoService.update(id, InsumoUpdateSchema.parse(req.body)));
+    } catch (e) { next(e); }
   },
-
-  remove: async (req: Request, res: Response) => {
-    const { id } = InsumoIdSchema.parse(req.params);
-    const data = await insumoService.remove(BigInt(id));
-    res.json(data);
+  remove: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = InsumoIdSchema.parse(req.params);
+      res.json(await insumoService.remove(id));
+    } catch (e) { next(e); }
   },
 };

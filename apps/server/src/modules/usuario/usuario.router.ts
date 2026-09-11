@@ -2,10 +2,8 @@ import { Router } from 'express';
 import { requireAuth, requireRole } from '../../core/auth/middleware.js';
 import * as c from './usuario.controller.js';
 
+// Gestión de usuarios: solo ADMIN. Registro público en POST /auth/register; perfil propio en PUT /auth/me.
 const r = Router();
-
-// Gestión de usuarios: solo ADMIN. El registro público vive en POST /auth/register
-// y la edición del propio perfil en PUT /auth/me.
 r.use(requireAuth, requireRole('ADMIN'));
 
 r.get('/', c.list);

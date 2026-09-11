@@ -1,16 +1,10 @@
 import type { NextFunction, Request, Response } from "express";
-import {
-  CampoIdSchema,
-  CampoQuerySchema,
-  CampoCreateSchema,
-  CampoUpdateSchema,
-} from "./campo.schema.js";
+import { CampoCreateSchema, CampoIdSchema, CampoQuerySchema, CampoUpdateSchema } from "./campo.schema.js";
 import { campoService } from "./campo.service.js";
 
 export const list = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { q, id_cliente, page, pageSize } = CampoQuerySchema.parse(req.query);
-    res.json(await campoService.list(req.user!, q, id_cliente, page, pageSize));
+    res.json(await campoService.list(req.user!, CampoQuerySchema.parse(req.query)));
   } catch (e) { next(e); }
 };
 
@@ -23,16 +17,14 @@ export const getById = async (req: Request, res: Response, next: NextFunction) =
 
 export const create = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const dto = CampoCreateSchema.parse(req.body);
-    res.status(201).json(await campoService.create(req.user!, dto));
+    res.status(201).json(await campoService.create(req.user!, CampoCreateSchema.parse(req.body)));
   } catch (e) { next(e); }
 };
 
 export const update = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = CampoIdSchema.parse(req.params);
-    const dto = CampoUpdateSchema.parse(req.body);
-    res.json(await campoService.update(req.user!, id, dto));
+    res.json(await campoService.update(req.user!, id, CampoUpdateSchema.parse(req.body)));
   } catch (e) { next(e); }
 };
 

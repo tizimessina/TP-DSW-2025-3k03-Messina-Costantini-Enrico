@@ -8,19 +8,18 @@ import { z } from "zod";
 // Habilita .openapi() en los schemas Zod (necesario para registry.register)
 extendZodWithOpenApi(z);
 
-import { LoginSchema, RegisterSchema, UpdateMeSchema } from "../../modules/auth/auth.schema.js";
-import { UsuarioCreateSchema, UsuarioUpdateSchema } from "../../modules/usuario/usuario.schema.js";
-import { ProvinciaCreateSchema, ProvinciaUpdateSchema } from "../../modules/provincia/provincia.schema.js";
-import { LocalidadCreateSchema, LocalidadUpdateSchema } from "../../modules/localidad/localidad.schema.js";
-import { CategoriaServicioCreateSchema, CategoriaServicioUpdateSchema } from "../../modules/categoria-servicio/categoria-servicio.schema.js";
-import { InsumoCreateSchema, InsumoUpdateSchema } from "../../modules/insumo/insumo.schema.js";
-import { ClienteCreateSchema, ClienteUpdateSchema } from "../../modules/cliente/cliente.schema.js";
-import { PrestamistaCreateSchema, PrestamistaQuerySchema, PrestamistaUpdateSchema } from "../../modules/prestamista/prestamista.schema.js";
-import { AdminCreateSchema, AdminUpdateSchema } from "../../modules/admin/admin.schema.js";
+import { ChangePasswordSchema, LoginSchema, RegisterSchema, UpdateMeSchema } from "../../modules/auth/auth.schema.js";
+import { UsuarioCreateSchema, UsuarioQuerySchema, UsuarioUpdateSchema } from "../../modules/usuario/usuario.schema.js";
+import { ProvinciaCreateSchema, ProvinciaQuerySchema, ProvinciaUpdateSchema } from "../../modules/provincia/provincia.schema.js";
+import { LocalidadCreateSchema, LocalidadQuerySchema, LocalidadUpdateSchema } from "../../modules/localidad/localidad.schema.js";
+import { CategoriaServicioCreateSchema, CategoriaServicioQuerySchema, CategoriaServicioUpdateSchema } from "../../modules/categoria-servicio/categoria-servicio.schema.js";
+import { InsumoCreateSchema, InsumoQuerySchema, InsumoUpdateSchema } from "../../modules/insumo/insumo.schema.js";
+import { ContratistaQuerySchema } from "../../modules/contratista/contratista.schema.js";
 import { ServicioCreateSchema, ServicioQuerySchema, ServicioUpdateSchema } from "../../modules/servicio/servicio.schema.js";
 import { PrecioCreateSchema, PrecioUpdateSchema } from "../../modules/precio/precio.schema.js";
 import { CampoCreateSchema, CampoQuerySchema, CampoUpdateSchema } from "../../modules/campo/campo.schema.js";
 import { CreateSolicitudInputSchema, SolicitudQuerySchema, UpdateSolicitudEstadoSchema } from "../../modules/solicitud/solicitud.schema.js";
+import { ValoracionCreateSchema, ValoracionQuerySchema } from "../../modules/valoracion/valoracion.schema.js";
 
 const registry = new OpenAPIRegistry();
 
@@ -36,14 +35,16 @@ registry.registerComponent("securitySchemes", "bearerAuth", {
 const ErrorSchema = registry.register(
   "Error",
   z.object({
-    code: z.string().describe("Código de error estable (VALIDATION_ERROR, UNAUTHORIZED, FORBIDDEN, NOT_FOUND, DUPLICATE, ...)"),
+    code: z.string().describe("Código estable: VALIDATION_ERROR, UNAUTHORIZED, FORBIDDEN, NOT_FOUND, DUPLICATE, IN_USE, INVALID_TRANSITION…"),
     message: z.string(),
-    details: z.any().optional().describe("Detalle adicional; en errores de validación, lista de { path, message }"),
+    details: z.any().optional().describe("En errores de validación, lista de { path, message }"),
   }),
 );
 
 const IdParam = z.object({ id: z.coerce.number().int().positive().describe("Identificador numérico") });
-const SearchQuery = z.object({ q: z.string().optional().describe("Búsqueda por texto") });
+const anyObj = z.object({}).passthrough();
+const PageOf = (name: string) =>
+  registry.register(name, z.object({ items: z.array(anyObj), total: z.number(), page: z.number(), pageSize: z.number(), totalPages: z.number() }));
 
 const PublicUserSchema = registry.register(
   "Usuario",
@@ -53,10 +54,13 @@ const PublicUserSchema = registry.register(
     nombre: z.string(),
     apellido: z.string(),
     cuil_cuit: z.string().nullable(),
+    telefono: z.string().nullable(),
     fecha_nac: z.string().nullable(),
     domicilio: z.string().nullable(),
     id_localidad: z.number().nullable(),
-    roles: z.array(z.enum(["ADMIN", "CLIENTE", "PRESTAMISTA"])),
+    roles: z.array(z.enum(["ADMIN", "PRODUCTOR", "CONTRATISTA"])),
+    productor: z.object({ razon_social: z.string().nullable() }).nullable(),
+    contratista: z.object({ descripcion: z.string().nullable(), anios_experiencia: z.number().nullable() }).nullable(),
   }),
 );
 
@@ -64,14 +68,14 @@ const AuthResponseSchema = registry.register("AuthResponse", z.object({ token: z
 
 /* ---------- Helpers ---------- */
 
-type Role = "ADMIN" | "CLIENTE" | "PRESTAMISTA";
+type Role = "ADMIN" | "PRODUCTOR" | "CONTRATISTA";
 
 const json = (schema: z.ZodTypeAny, description: string) => ({ description, content: { "application/json": { schema } } });
 const errors = (...codes: number[]) =>
   Object.fromEntries(
     codes.map((c) => [
       c,
-      json(ErrorSchema, { 400: "Datos inválidos", 401: "Sin token o token inválido", 403: "Sin permisos", 404: "No encontrado", 409: "Conflicto" }[c] ?? "Error"),
+      json(ErrorSchema, { 400: "Datos inválidos", 401: "Sin token o token inválido", 403: "Sin permisos", 404: "No encontrado", 409: "Conflicto de negocio" }[c] ?? "Error"),
     ]),
   );
 
@@ -86,63 +90,66 @@ function route(cfg: Omit<RouteConfig, "responses"> & { roles?: Role[]; responses
   });
 }
 
-/** Registra un CRUD estándar: GET /, GET /:id, POST /, PUT /:id, DELETE /:id. */
-function crud(opts: {
-  tag: string;
-  base: string;
-  entity: string;
-  create: z.ZodTypeAny;
-  update: z.ZodTypeAny;
-  query?: z.ZodObject<any>;
-  readRoles?: Role[];
-  writeRoles: Role[];
-}) {
-  const { tag, base, entity, create, update, query = SearchQuery, readRoles, writeRoles } = opts;
-  const any = z.object({}).passthrough();
-  route({ tags: [tag], method: "get", path: base, summary: `Listar ${entity}`, roles: readRoles, request: { query }, responses: { 200: json(z.array(any), "Listado") } });
-  route({ tags: [tag], method: "get", path: `${base}/{id}`, summary: `Detalle de ${entity}`, roles: readRoles, request: { params: IdParam }, responses: { 200: json(any, "Encontrado"), ...errors(404) } });
-  route({ tags: [tag], method: "post", path: base, summary: `Crear ${entity}`, roles: writeRoles, request: { body: json(create, "Datos") }, responses: { 201: json(any, "Creado"), ...errors(400, 409) } });
-  route({ tags: [tag], method: "put", path: `${base}/{id}`, summary: `Actualizar ${entity}`, roles: writeRoles, request: { params: IdParam, body: json(update, "Datos") }, responses: { 200: json(any, "Actualizado"), ...errors(400, 404, 409) } });
-  route({ tags: [tag], method: "delete", path: `${base}/{id}`, summary: `Eliminar ${entity}`, roles: writeRoles, request: { params: IdParam }, responses: { 204: { description: "Eliminado" }, ...errors(404, 409) } });
+/** CRUD estándar de catálogo: GET /, GET /:id, POST /, PUT /:id, DELETE /:id. */
+function crud(opts: { tag: string; base: string; entity: string; create: z.ZodTypeAny; update: z.ZodTypeAny; query: z.ZodObject<any>; readRoles?: Role[]; writeRoles: Role[]; paged?: boolean; deleteReturns?: "204" | "json" }) {
+  const { tag, base, entity, create, update, query, readRoles, writeRoles, paged, deleteReturns = "204" } = opts;
+  route({ tags: [tag], method: "get", path: base, summary: `Listar ${entity}`, roles: readRoles, request: { query }, responses: { 200: json(paged ? PageOf(`Page_${tag}`) : z.array(anyObj), "Listado") } });
+  route({ tags: [tag], method: "get", path: `${base}/{id}`, summary: `Detalle de ${entity}`, roles: readRoles, request: { params: IdParam }, responses: { 200: json(anyObj, "Encontrado"), ...errors(404) } });
+  route({ tags: [tag], method: "post", path: base, summary: `Crear ${entity}`, roles: writeRoles, request: { body: json(create, "Datos") }, responses: { 201: json(anyObj, "Creado"), ...errors(400, 409) } });
+  route({ tags: [tag], method: "put", path: `${base}/{id}`, summary: `Actualizar ${entity}`, roles: writeRoles, request: { params: IdParam, body: json(update, "Datos") }, responses: { 200: json(anyObj, "Actualizado"), ...errors(400, 404, 409) } });
+  route({ tags: [tag], method: "delete", path: `${base}/{id}`, summary: `Eliminar ${entity}`, roles: writeRoles, request: { params: IdParam }, responses: { ...(deleteReturns === "204" ? { 204: { description: "Eliminado" } } : { 200: json(z.object({ ok: z.boolean() }), "Eliminado") }), ...errors(404, 409) } });
 }
 
 /* ---------- Rutas ---------- */
 
+const all: Role[] = ["ADMIN", "PRODUCTOR", "CONTRATISTA"];
+
 route({ tags: ["Sistema"], method: "get", path: "/health", summary: "Health check", responses: { 200: json(z.object({ ok: z.boolean() }), "OK") } });
 
 route({ tags: ["Auth"], method: "post", path: "/auth/login", summary: "Iniciar sesión", request: { body: json(LoginSchema, "Credenciales") }, responses: { 200: json(AuthResponseSchema, "Token JWT y usuario"), ...errors(400, 401) } });
-route({ tags: ["Auth"], method: "post", path: "/auth/register", summary: "Registro público como CLIENTE o PRESTAMISTA", request: { body: json(RegisterSchema, "Datos") }, responses: { 201: json(AuthResponseSchema, "Usuario creado y logueado"), ...errors(400, 409) } });
-route({ tags: ["Auth"], method: "get", path: "/auth/me", summary: "Usuario autenticado", roles: ["ADMIN", "CLIENTE", "PRESTAMISTA"], responses: { 200: json(PublicUserSchema, "Perfil") } });
-route({ tags: ["Auth"], method: "put", path: "/auth/me", summary: "Editar el propio perfil (sin roles)", roles: ["ADMIN", "CLIENTE", "PRESTAMISTA"], request: { body: json(UpdateMeSchema, "Datos") }, responses: { 200: json(PublicUserSchema, "Perfil actualizado"), ...errors(400) } });
+route({ tags: ["Auth"], method: "post", path: "/auth/register", summary: "Registro público como PRODUCTOR o CONTRATISTA", request: { body: json(RegisterSchema, "Datos") }, responses: { 201: json(AuthResponseSchema, "Usuario creado y logueado"), ...errors(400, 409) } });
+route({ tags: ["Auth"], method: "get", path: "/auth/me", summary: "Usuario autenticado", roles: all, responses: { 200: json(PublicUserSchema, "Perfil") } });
+route({ tags: ["Auth"], method: "put", path: "/auth/me", summary: "Editar el propio perfil (datos personales y del subtipo; sin roles ni email)", roles: all, request: { body: json(UpdateMeSchema, "Datos") }, responses: { 200: json(PublicUserSchema, "Perfil actualizado"), ...errors(400, 409) } });
+route({ tags: ["Auth"], method: "put", path: "/auth/me/password", summary: "Cambiar contraseña (requiere la actual)", roles: all, request: { body: json(ChangePasswordSchema, "Contraseñas") }, responses: { 200: json(z.object({ ok: z.boolean() }), "OK"), ...errors(400) } });
+route({ tags: ["Auth"], method: "get", path: "/auth/me/resumen", summary: "Resumen para el dashboard (solicitudes por estado, próximos trabajos, contadores)", roles: all, responses: { 200: json(anyObj, "Resumen") } });
 
-crud({ tag: "Usuarios", base: "/usuarios", entity: "usuario", create: UsuarioCreateSchema, update: UsuarioUpdateSchema, query: z.object({ q: z.string().optional(), role: z.enum(["ADMIN", "CLIENTE", "PRESTAMISTA"]).optional(), id_localidad: z.coerce.number().optional() }), readRoles: ["ADMIN"], writeRoles: ["ADMIN"] });
-crud({ tag: "Provincias", base: "/provincias", entity: "provincia", create: ProvinciaCreateSchema, update: ProvinciaUpdateSchema, writeRoles: ["ADMIN"] });
-crud({ tag: "Localidades", base: "/localidades", entity: "localidad", create: LocalidadCreateSchema, update: LocalidadUpdateSchema, query: z.object({ q: z.string().optional(), id_provincia: z.coerce.number().optional() }), writeRoles: ["ADMIN"] });
-crud({ tag: "Categorías", base: "/categorias-servicio", entity: "categoría de servicio", create: CategoriaServicioCreateSchema, update: CategoriaServicioUpdateSchema, writeRoles: ["ADMIN"] });
-crud({ tag: "Insumos", base: "/insumos", entity: "insumo", create: InsumoCreateSchema, update: InsumoUpdateSchema, writeRoles: ["ADMIN"] });
-crud({ tag: "Clientes", base: "/clientes", entity: "perfil de cliente", create: ClienteCreateSchema, update: ClienteUpdateSchema, readRoles: ["ADMIN"], writeRoles: ["ADMIN"] });
-crud({ tag: "Prestamistas", base: "/prestamistas", entity: "perfil de prestamista", create: PrestamistaCreateSchema, update: PrestamistaUpdateSchema, query: PrestamistaQuerySchema, writeRoles: ["ADMIN"] });
-crud({ tag: "Admins", base: "/admins", entity: "perfil de administrador", create: AdminCreateSchema, update: AdminUpdateSchema, readRoles: ["ADMIN"], writeRoles: ["ADMIN"] });
-crud({ tag: "Servicios", base: "/servicios", entity: "servicio", create: ServicioCreateSchema, update: ServicioUpdateSchema, query: ServicioQuerySchema, writeRoles: ["PRESTAMISTA", "ADMIN"] });
-crud({ tag: "Campos", base: "/campos", entity: "campo", create: CampoCreateSchema, update: CampoUpdateSchema, query: CampoQuerySchema, readRoles: ["CLIENTE", "ADMIN"], writeRoles: ["CLIENTE", "ADMIN"] });
+crud({ tag: "Usuarios", base: "/usuarios", entity: "usuario", create: UsuarioCreateSchema, update: UsuarioUpdateSchema, query: UsuarioQuerySchema, readRoles: ["ADMIN"], writeRoles: ["ADMIN"], paged: true });
+crud({ tag: "Provincias", base: "/provincias", entity: "provincia", create: ProvinciaCreateSchema, update: ProvinciaUpdateSchema, query: ProvinciaQuerySchema, writeRoles: ["ADMIN"] });
+crud({ tag: "Localidades", base: "/localidades", entity: "localidad", create: LocalidadCreateSchema, update: LocalidadUpdateSchema, query: LocalidadQuerySchema, writeRoles: ["ADMIN"] });
+crud({ tag: "Categorías", base: "/categorias-servicio", entity: "categoría de servicio", create: CategoriaServicioCreateSchema, update: CategoriaServicioUpdateSchema, query: CategoriaServicioQuerySchema, writeRoles: ["ADMIN"], deleteReturns: "json" });
+crud({ tag: "Insumos", base: "/insumos", entity: "insumo (con precio de referencia y unidad)", create: InsumoCreateSchema, update: InsumoUpdateSchema, query: InsumoQuerySchema, writeRoles: ["ADMIN"], deleteReturns: "json" });
 
-// Precios: rutas extra por servicio
-const anyObj = z.object({}).passthrough();
-route({ tags: ["Precios"], method: "get", path: "/precios", summary: "Listar precios de un servicio", request: { query: z.object({ id_servicio: z.coerce.number().optional() }) }, responses: { 200: json(z.array(anyObj), "Historial (vacío si no se indica id_servicio)") } });
-route({ tags: ["Precios"], method: "get", path: "/precios/servicio/{id_servicio}", summary: "Historial de precios del servicio", request: { params: z.object({ id_servicio: z.coerce.number() }) }, responses: { 200: json(z.array(anyObj), "Historial ordenado por fecha desc") } });
-route({ tags: ["Precios"], method: "get", path: "/precios/servicio/{id_servicio}/vigente", summary: "Precio vigente del servicio", request: { params: z.object({ id_servicio: z.coerce.number() }) }, responses: { 200: json(anyObj, "Precio vigente"), ...errors(404) } });
+route({ tags: ["Contratistas"], method: "get", path: "/contratistas", summary: "Listado público de contratistas", description: "Con `id_campo` filtra por la localidad del campo (cercanía) y, si no hay resultados, por su provincia; `alcance` indica cuál aplicó. Incluye servicios activos con precio vigente, valoración promedio y trabajos completados.", request: { query: ContratistaQuerySchema }, responses: { 200: json(PageOf("Page_Contratistas").extend({ alcance: z.enum(["localidad", "provincia", "todos"]) }), "Listado") } });
+route({ tags: ["Contratistas"], method: "get", path: "/contratistas/{id}", summary: "Perfil público de un contratista con servicios y valoraciones", request: { params: IdParam }, responses: { 200: json(anyObj, "Contratista"), ...errors(404) } });
+
+route({ tags: ["Servicios"], method: "get", path: "/servicios", summary: "Catálogo de servicios activos (paginado, con precio vigente)", request: { query: ServicioQuerySchema }, responses: { 200: json(PageOf("Page_Servicios"), "Listado") } });
+route({ tags: ["Servicios"], method: "get", path: "/servicios/{id}", summary: "Detalle con historial de precios", request: { params: IdParam }, responses: { 200: json(anyObj, "Servicio"), ...errors(404) } });
+route({ tags: ["Servicios"], method: "post", path: "/servicios", summary: "Publicar un servicio (CUU)", description: "El servicio pertenece al contratista autenticado. `precio_inicial` crea el precio vigente desde hoy.", roles: ["CONTRATISTA"], request: { body: json(ServicioCreateSchema, "Datos") }, responses: { 201: json(anyObj, "Creado"), ...errors(400) } });
+route({ tags: ["Servicios"], method: "put", path: "/servicios/{id}", summary: "Actualizar servicio (nombre, descripción, categoría, activo)", roles: ["CONTRATISTA", "ADMIN"], request: { params: IdParam, body: json(ServicioUpdateSchema, "Datos") }, responses: { 200: json(anyObj, "Actualizado"), ...errors(400, 404) } });
+route({ tags: ["Servicios"], method: "delete", path: "/servicios/{id}", summary: "Desactivar servicio (baja lógica)", roles: ["CONTRATISTA", "ADMIN"], request: { params: IdParam }, responses: { 200: json(anyObj, "Servicio desactivado"), ...errors(404) } });
+
+const idServicioParam = z.object({ id_servicio: z.coerce.number().int().positive() });
+route({ tags: ["Precios"], method: "get", path: "/precios/servicio/{id_servicio}", summary: "Historial de precios del servicio", request: { params: idServicioParam }, responses: { 200: json(z.array(anyObj), "Historial desc") } });
+route({ tags: ["Precios"], method: "get", path: "/precios/servicio/{id_servicio}/vigente", summary: "Precio vigente (mayor fecha_desde ≤ hoy)", request: { params: idServicioParam }, responses: { 200: json(anyObj, "Precio"), ...errors(404) } });
 route({ tags: ["Precios"], method: "get", path: "/precios/{id}", summary: "Detalle de precio", request: { params: IdParam }, responses: { 200: json(anyObj, "Precio"), ...errors(404) } });
-route({ tags: ["Precios"], method: "post", path: "/precios", summary: "Cargar precio (dueño del servicio)", roles: ["PRESTAMISTA", "ADMIN"], request: { body: json(PrecioCreateSchema, "Datos") }, responses: { 201: json(anyObj, "Creado"), ...errors(400, 404, 409) } });
-route({ tags: ["Precios"], method: "put", path: "/precios/{id}", summary: "Actualizar precio", roles: ["PRESTAMISTA", "ADMIN"], request: { params: IdParam, body: json(PrecioUpdateSchema, "Datos") }, responses: { 200: json(anyObj, "Actualizado"), ...errors(400, 404, 409) } });
-route({ tags: ["Precios"], method: "delete", path: "/precios/{id}", summary: "Eliminar precio", roles: ["PRESTAMISTA", "ADMIN"], request: { params: IdParam }, responses: { 200: json(z.object({ ok: z.boolean() }), "Eliminado"), ...errors(404) } });
+route({ tags: ["Precios"], method: "post", path: "/precios", summary: "Cargar precio (dueño del servicio)", roles: ["CONTRATISTA", "ADMIN"], request: { body: json(PrecioCreateSchema, "Datos") }, responses: { 201: json(anyObj, "Creado"), ...errors(400, 404, 409) } });
+route({ tags: ["Precios"], method: "put", path: "/precios/{id}", summary: "Actualizar precio", roles: ["CONTRATISTA", "ADMIN"], request: { params: IdParam, body: json(PrecioUpdateSchema, "Datos") }, responses: { 200: json(anyObj, "Actualizado"), ...errors(400, 404, 409) } });
+route({ tags: ["Precios"], method: "delete", path: "/precios/{id}", summary: "Eliminar precio (no el único vigente de un servicio activo)", roles: ["CONTRATISTA", "ADMIN"], request: { params: IdParam }, responses: { 200: json(z.object({ ok: z.boolean() }), "Eliminado"), ...errors(404, 409) } });
 
-// Solicitudes (caso de uso principal)
-const allRoles: Role[] = ["ADMIN", "CLIENTE", "PRESTAMISTA"];
-route({ tags: ["Solicitudes"], method: "get", path: "/solicitudes", summary: "Listar solicitudes (el cliente ve las suyas, el prestamista las recibidas, el admin todas)", roles: allRoles, request: { query: SolicitudQuerySchema }, responses: { 200: json(z.array(anyObj), "Listado con servicio, campo, cliente y prestamista") } });
-route({ tags: ["Solicitudes"], method: "get", path: "/solicitudes/{id}", summary: "Detalle completo de una solicitud", roles: allRoles, request: { params: IdParam }, responses: { 200: json(anyObj, "Solicitud con servicio, categoría, campo, cliente, prestamista e insumos"), ...errors(404) } });
-route({ tags: ["Solicitudes"], method: "post", path: "/solicitudes", summary: "Solicitar un servicio", description: "El cliente se toma del token y el prestamista del servicio. precio_servicio = precio vigente × hectáreas; precio_total suma los insumos.", roles: ["CLIENTE"], request: { body: json(CreateSolicitudInputSchema, "Datos") }, responses: { 201: json(anyObj, "Solicitud creada en estado pendiente"), ...errors(400, 404, 409) } });
-route({ tags: ["Solicitudes"], method: "patch", path: "/solicitudes/{id}/estado", summary: "Cambiar estado", description: "Transiciones válidas: pendiente → aceptada | rechazada; aceptada → completada. Solo el prestamista de la solicitud (o ADMIN).", roles: ["PRESTAMISTA", "ADMIN"], request: { params: IdParam, body: json(UpdateSolicitudEstadoSchema, "Nuevo estado") }, responses: { 200: json(anyObj, "Solicitud actualizada"), ...errors(400, 404, 409) } });
-route({ tags: ["Solicitudes"], method: "delete", path: "/solicitudes/{id}", summary: "Cancelar solicitud (cliente, solo si está pendiente)", roles: ["CLIENTE", "ADMIN"], request: { params: IdParam }, responses: { 204: { description: "Cancelada" }, ...errors(404, 409) } });
+route({ tags: ["Campos"], method: "get", path: "/campos", summary: "Campos del productor (ADMIN: todos)", roles: ["PRODUCTOR", "ADMIN"], request: { query: CampoQuerySchema }, responses: { 200: json(z.array(anyObj), "Listado") } });
+route({ tags: ["Campos"], method: "get", path: "/campos/{id}", summary: "Detalle con solicitudes (dueño, ADMIN o contratista con solicitud sobre el campo)", roles: all, request: { params: IdParam }, responses: { 200: json(anyObj, "Campo"), ...errors(404) } });
+route({ tags: ["Campos"], method: "post", path: "/campos", summary: "Registrar campo", roles: ["PRODUCTOR", "ADMIN"], request: { body: json(CampoCreateSchema, "Datos") }, responses: { 201: json(anyObj, "Creado"), ...errors(400) } });
+route({ tags: ["Campos"], method: "put", path: "/campos/{id}", summary: "Actualizar campo (no se pueden reducir las hectáreas por debajo de las comprometidas)", roles: ["PRODUCTOR", "ADMIN"], request: { params: IdParam, body: json(CampoUpdateSchema, "Datos") }, responses: { 200: json(anyObj, "Actualizado"), ...errors(400, 404, 409) } });
+route({ tags: ["Campos"], method: "delete", path: "/campos/{id}", summary: "Eliminar campo sin solicitudes", roles: ["PRODUCTOR", "ADMIN"], request: { params: IdParam }, responses: { 204: { description: "Eliminado" }, ...errors(404, 409) } });
+
+route({ tags: ["Solicitudes"], method: "get", path: "/solicitudes", summary: "Listar solicitudes (productor: las suyas; contratista: las recibidas; admin: todas)", roles: all, request: { query: SolicitudQuerySchema }, responses: { 200: json(PageOf("Page_Solicitudes"), "Listado") } });
+route({ tags: ["Solicitudes"], method: "get", path: "/solicitudes/{id}", summary: "Detalle completo (con contacto de la contraparte, insumos e importes)", roles: all, request: { params: IdParam }, responses: { 200: json(anyObj, "Solicitud"), ...errors(404) } });
+route({ tags: ["Solicitudes"], method: "post", path: "/solicitudes", summary: "Solicitar un servicio (CUU)", description: "Productor autenticado; contratista = dueño del servicio. precio_servicio = precio vigente × hectáreas; los insumos toman el precio de referencia del catálogo y solo suman si los aporta el contratista.", roles: ["PRODUCTOR"], request: { body: json(CreateSolicitudInputSchema, "Datos") }, responses: { 201: json(anyObj, "Solicitud pendiente"), ...errors(400, 404, 409) } });
+route({ tags: ["Solicitudes"], method: "patch", path: "/solicitudes/{id}/estado", summary: "Cambiar estado (CUU)", description: "pendiente → aceptada | rechazada (contratista) | cancelada (productor); aceptada → completada (contratista) | cancelada (ambos, con motivo). Al aceptar se fija fecha_inicio; al completar, fecha_fin.", roles: all, request: { params: IdParam, body: json(UpdateSolicitudEstadoSchema, "Nuevo estado") }, responses: { 200: json(anyObj, "Actualizada"), ...errors(400, 404, 409) } });
+route({ tags: ["Solicitudes"], method: "delete", path: "/solicitudes/{id}", summary: "Eliminar solicitud (solo ADMIN)", roles: ["ADMIN"], request: { params: IdParam }, responses: { 204: { description: "Eliminada" }, ...errors(404) } });
+
+route({ tags: ["Valoraciones"], method: "get", path: "/valoraciones", summary: "Valoraciones por contratista o por servicio, con promedio", request: { query: ValoracionQuerySchema }, responses: { 200: json(z.object({ items: z.array(anyObj), promedio: z.number().nullable(), cantidad: z.number() }), "Listado") } });
+route({ tags: ["Valoraciones"], method: "post", path: "/valoraciones", summary: "Valorar una solicitud completada (CUU adicional)", roles: ["PRODUCTOR"], request: { body: json(ValoracionCreateSchema, "Datos") }, responses: { 201: json(anyObj, "Creada"), ...errors(400, 404, 409) } });
 
 /* ---------- Documento ---------- */
 
@@ -152,19 +159,18 @@ export function generateOpenApiDocument(serverUrl = "http://localhost:3000") {
     openapi: "3.0.3",
     info: {
       title: "AgroApp API",
-      version: "1.0.0",
+      version: "2.0.0",
       description:
-        "API REST de AgroApp (TP Desarrollo de Software 2025, UTN FRRo). Conecta clientes (productores) con prestamistas (contratistas rurales).\n\n" +
-        "Autenticación con JWT: obtener el token en `POST /auth/login` y usar el botón **Authorize**. Roles: ADMIN, CLIENTE, PRESTAMISTA.",
+        "API REST de AgroApp (TP Desarrollo de Software 2025, UTN FRRo). Conecta productores agropecuarios con contratistas rurales.\n\n" +
+        "Autenticación con JWT: obtener el token en `POST /auth/login` y usar el botón **Authorize**. Roles: ADMIN, PRODUCTOR, CONTRATISTA.",
     },
     servers: [
       { url: serverUrl, description: "Servidor actual" },
       { url: "https://api.agroapp.dev", description: "Producción" },
     ],
     tags: [
-      { name: "Auth" }, { name: "Usuarios" }, { name: "Provincias" }, { name: "Localidades" }, { name: "Categorías" },
-      { name: "Insumos" }, { name: "Clientes" }, { name: "Prestamistas" }, { name: "Admins" }, { name: "Servicios" },
-      { name: "Precios" }, { name: "Campos" }, { name: "Solicitudes" }, { name: "Sistema" },
+      { name: "Auth" }, { name: "Usuarios" }, { name: "Provincias" }, { name: "Localidades" }, { name: "Categorías" }, { name: "Insumos" },
+      { name: "Contratistas" }, { name: "Servicios" }, { name: "Precios" }, { name: "Campos" }, { name: "Solicitudes" }, { name: "Valoraciones" }, { name: "Sistema" },
     ],
   });
 }

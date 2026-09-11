@@ -3,14 +3,13 @@ import { requireAuth, requireRole } from "../../core/auth/middleware.js";
 import * as c from "./campo.controller.js";
 
 const r = Router();
+r.use(requireAuth);
 
-// Los campos son privados del cliente (o visibles para ADMIN).
-r.use(requireAuth, requireRole("CLIENTE", "ADMIN"));
-
-r.get("/", c.list);
+r.get("/", requireRole("PRODUCTOR", "ADMIN"), c.list);
+// El detalle también lo puede ver el contratista que tiene una solicitud sobre el campo (se valida en el service)
 r.get("/:id", c.getById);
-r.post("/", c.create);
-r.put("/:id", c.update);
-r.delete("/:id", c.remove);
+r.post("/", requireRole("PRODUCTOR", "ADMIN"), c.create);
+r.put("/:id", requireRole("PRODUCTOR", "ADMIN"), c.update);
+r.delete("/:id", requireRole("PRODUCTOR", "ADMIN"), c.remove);
 
 export default r;

@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "AgroApp API",
-    "version": "1.0.0",
-    "description": "API REST de AgroApp (TP Desarrollo de Software 2025, UTN FRRo). Conecta clientes (productores) con prestamistas (contratistas rurales).\n\nAutenticación con JWT: obtener el token en `POST /auth/login` y usar el botón **Authorize**. Roles: ADMIN, CLIENTE, PRESTAMISTA."
+    "version": "2.0.0",
+    "description": "API REST de AgroApp (TP Desarrollo de Software 2025, UTN FRRo). Conecta productores agropecuarios con contratistas rurales.\n\nAutenticación con JWT: obtener el token en `POST /auth/login` y usar el botón **Authorize**. Roles: ADMIN, PRODUCTOR, CONTRATISTA."
   },
   "servers": [
     {
@@ -35,13 +35,7 @@
       "name": "Insumos"
     },
     {
-      "name": "Clientes"
-    },
-    {
-      "name": "Prestamistas"
-    },
-    {
-      "name": "Admins"
+      "name": "Contratistas"
     },
     {
       "name": "Servicios"
@@ -54,6 +48,9 @@
     },
     {
       "name": "Solicitudes"
+    },
+    {
+      "name": "Valoraciones"
     },
     {
       "name": "Sistema"
@@ -74,14 +71,14 @@
         "properties": {
           "code": {
             "type": "string",
-            "description": "Código de error estable (VALIDATION_ERROR, UNAUTHORIZED, FORBIDDEN, NOT_FOUND, DUPLICATE, ...)"
+            "description": "Código estable: VALIDATION_ERROR, UNAUTHORIZED, FORBIDDEN, NOT_FOUND, DUPLICATE, IN_USE, INVALID_TRANSITION…"
           },
           "message": {
             "type": "string"
           },
           "details": {
             "nullable": true,
-            "description": "Detalle adicional; en errores de validación, lista de { path, message }"
+            "description": "En errores de validación, lista de { path, message }"
           }
         },
         "required": [
@@ -108,6 +105,10 @@
             "type": "string",
             "nullable": true
           },
+          "telefono": {
+            "type": "string",
+            "nullable": true
+          },
           "fecha_nac": {
             "type": "string",
             "nullable": true
@@ -126,10 +127,41 @@
               "type": "string",
               "enum": [
                 "ADMIN",
-                "CLIENTE",
-                "PRESTAMISTA"
+                "PRODUCTOR",
+                "CONTRATISTA"
               ]
             }
+          },
+          "productor": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "razon_social": {
+                "type": "string",
+                "nullable": true
+              }
+            },
+            "required": [
+              "razon_social"
+            ]
+          },
+          "contratista": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "descripcion": {
+                "type": "string",
+                "nullable": true
+              },
+              "anios_experiencia": {
+                "type": "number",
+                "nullable": true
+              }
+            },
+            "required": [
+              "descripcion",
+              "anios_experiencia"
+            ]
           }
         },
         "required": [
@@ -138,10 +170,13 @@
           "nombre",
           "apellido",
           "cuil_cuit",
+          "telefono",
           "fecha_nac",
           "domicilio",
           "id_localidad",
-          "roles"
+          "roles",
+          "productor",
+          "contratista"
         ]
       },
       "AuthResponse": {
@@ -157,6 +192,142 @@
         "required": [
           "token",
           "user"
+        ]
+      },
+      "Page_Usuarios": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": {
+                "nullable": true
+              }
+            }
+          },
+          "total": {
+            "type": "number"
+          },
+          "page": {
+            "type": "number"
+          },
+          "pageSize": {
+            "type": "number"
+          },
+          "totalPages": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
+        ]
+      },
+      "Page_Contratistas": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": {
+                "nullable": true
+              }
+            }
+          },
+          "total": {
+            "type": "number"
+          },
+          "page": {
+            "type": "number"
+          },
+          "pageSize": {
+            "type": "number"
+          },
+          "totalPages": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
+        ]
+      },
+      "Page_Servicios": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": {
+                "nullable": true
+              }
+            }
+          },
+          "total": {
+            "type": "number"
+          },
+          "page": {
+            "type": "number"
+          },
+          "pageSize": {
+            "type": "number"
+          },
+          "totalPages": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
+        ]
+      },
+      "Page_Solicitudes": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": {
+                "nullable": true
+              }
+            }
+          },
+          "total": {
+            "type": "number"
+          },
+          "page": {
+            "type": "number"
+          },
+          "pageSize": {
+            "type": "number"
+          },
+          "totalPages": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
         ]
       }
     },
@@ -260,7 +431,7 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Registro público como CLIENTE o PRESTAMISTA",
+        "summary": "Registro público como PRODUCTOR o CONTRATISTA",
         "requestBody": {
           "description": "Datos",
           "content": {
@@ -274,7 +445,8 @@
                   },
                   "password": {
                     "type": "string",
-                    "minLength": 6
+                    "minLength": 8,
+                    "maxLength": 72
                   },
                   "nombre": {
                     "type": "string",
@@ -289,14 +461,20 @@
                   "rol": {
                     "type": "string",
                     "enum": [
-                      "CLIENTE",
-                      "PRESTAMISTA"
+                      "PRODUCTOR",
+                      "CONTRATISTA"
                     ]
                   },
                   "id_localidad": {
                     "type": "string",
                     "nullable": true,
                     "pattern": "^\\d+$"
+                  },
+                  "telefono": {
+                    "type": "string",
+                    "nullable": true,
+                    "minLength": 6,
+                    "maxLength": 30
                   }
                 },
                 "required": [
@@ -332,7 +510,7 @@
             }
           },
           "409": {
-            "description": "Conflicto",
+            "description": "Conflicto de negocio",
             "content": {
               "application/json": {
                 "schema": {
@@ -350,7 +528,7 @@
           "Auth"
         ],
         "summary": "Usuario autenticado",
-        "description": "Requiere rol: ADMIN o CLIENTE o PRESTAMISTA.",
+        "description": "Requiere rol: ADMIN o PRODUCTOR o CONTRATISTA.",
         "security": [
           {
             "bearerAuth": []
@@ -393,8 +571,8 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Editar el propio perfil (sin roles)",
-        "description": "Requiere rol: ADMIN o CLIENTE o PRESTAMISTA.",
+        "summary": "Editar el propio perfil (datos personales y del subtipo; sin roles ni email)",
+        "description": "Requiere rol: ADMIN o PRODUCTOR o CONTRATISTA.",
         "security": [
           {
             "bearerAuth": []
@@ -417,14 +595,16 @@
                     "minLength": 1,
                     "maxLength": 100
                   },
-                  "password": {
-                    "type": "string",
-                    "minLength": 6
-                  },
                   "cuil_cuit": {
                     "type": "string",
                     "nullable": true,
-                    "maxLength": 20
+                    "pattern": "^\\d{2}-\\d{8}-\\d$"
+                  },
+                  "telefono": {
+                    "type": "string",
+                    "nullable": true,
+                    "minLength": 6,
+                    "maxLength": 30
                   },
                   "fecha_nac": {
                     "type": "string",
@@ -440,6 +620,22 @@
                     "type": "string",
                     "nullable": true,
                     "pattern": "^\\d+$"
+                  },
+                  "razon_social": {
+                    "type": "string",
+                    "nullable": true,
+                    "maxLength": 150
+                  },
+                  "descripcion": {
+                    "type": "string",
+                    "nullable": true,
+                    "maxLength": 600
+                  },
+                  "anios_experiencia": {
+                    "type": "integer",
+                    "nullable": true,
+                    "minimum": 0,
+                    "maximum": 80
                   }
                 }
               }
@@ -486,6 +682,155 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Conflicto de negocio",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/me/password": {
+      "put": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Cambiar contraseña (requiere la actual)",
+        "description": "Requiere rol: ADMIN o PRODUCTOR o CONTRATISTA.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "description": "Contraseñas",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "password_actual": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "password_nueva": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 72
+                  }
+                },
+                "required": [
+                  "password_actual",
+                  "password_nueva"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin token o token inválido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sin permisos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/me/resumen": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Resumen para el dashboard (solicitudes por estado, próximos trabajos, contadores)",
+        "description": "Requiere rol: ADMIN o PRODUCTOR o CONTRATISTA.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resumen",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": {
+                    "nullable": true
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin token o token inválido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sin permisos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }
@@ -505,7 +850,31 @@
         "parameters": [
           {
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true,
+              "default": 1
+            },
+            "required": false,
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true,
+              "maximum": 100,
+              "default": 20
+            },
+            "required": false,
+            "name": "pageSize",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 120
             },
             "required": false,
             "name": "q",
@@ -516,8 +885,8 @@
               "type": "string",
               "enum": [
                 "ADMIN",
-                "CLIENTE",
-                "PRESTAMISTA"
+                "PRODUCTOR",
+                "CONTRATISTA"
               ]
             },
             "required": false,
@@ -526,8 +895,8 @@
           },
           {
             "schema": {
-              "type": "number",
-              "nullable": true
+              "type": "string",
+              "pattern": "^\\d+$"
             },
             "required": false,
             "name": "id_localidad",
@@ -540,14 +909,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {},
-                    "additionalProperties": {
-                      "nullable": true
-                    }
-                  }
+                  "$ref": "#/components/schemas/Page_Usuarios"
                 }
               }
             }
@@ -592,14 +954,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "email": {
-                    "type": "string",
-                    "format": "email"
-                  },
-                  "password": {
-                    "type": "string",
-                    "minLength": 6
-                  },
                   "nombre": {
                     "type": "string",
                     "minLength": 1,
@@ -613,7 +967,13 @@
                   "cuil_cuit": {
                     "type": "string",
                     "nullable": true,
-                    "maxLength": 20
+                    "pattern": "^\\d{2}-\\d{8}-\\d$"
+                  },
+                  "telefono": {
+                    "type": "string",
+                    "nullable": true,
+                    "minLength": 6,
+                    "maxLength": 30
                   },
                   "fecha_nac": {
                     "type": "string",
@@ -630,24 +990,50 @@
                     "nullable": true,
                     "pattern": "^\\d+$"
                   },
+                  "razon_social": {
+                    "type": "string",
+                    "nullable": true,
+                    "maxLength": 150
+                  },
+                  "descripcion": {
+                    "type": "string",
+                    "nullable": true,
+                    "maxLength": 600
+                  },
+                  "anios_experiencia": {
+                    "type": "integer",
+                    "nullable": true,
+                    "minimum": 0,
+                    "maximum": 80
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 72
+                  },
                   "roles": {
                     "type": "array",
                     "items": {
                       "type": "string",
                       "enum": [
                         "ADMIN",
-                        "CLIENTE",
-                        "PRESTAMISTA"
+                        "PRODUCTOR",
+                        "CONTRATISTA"
                       ]
                     },
-                    "default": []
+                    "minItems": 1
                   }
                 },
                 "required": [
+                  "nombre",
+                  "apellido",
                   "email",
                   "password",
-                  "nombre",
-                  "apellido"
+                  "roles"
                 ]
               }
             }
@@ -699,7 +1085,7 @@
             }
           },
           "409": {
-            "description": "Conflicto",
+            "description": "Conflicto de negocio",
             "content": {
               "application/json": {
                 "schema": {
@@ -816,14 +1202,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "email": {
-                    "type": "string",
-                    "format": "email"
-                  },
-                  "password": {
-                    "type": "string",
-                    "minLength": 6
-                  },
                   "nombre": {
                     "type": "string",
                     "minLength": 1,
@@ -837,7 +1215,13 @@
                   "cuil_cuit": {
                     "type": "string",
                     "nullable": true,
-                    "maxLength": 20
+                    "pattern": "^\\d{2}-\\d{8}-\\d$"
+                  },
+                  "telefono": {
+                    "type": "string",
+                    "nullable": true,
+                    "minLength": 6,
+                    "maxLength": 30
                   },
                   "fecha_nac": {
                     "type": "string",
@@ -854,17 +1238,42 @@
                     "nullable": true,
                     "pattern": "^\\d+$"
                   },
+                  "razon_social": {
+                    "type": "string",
+                    "nullable": true,
+                    "maxLength": 150
+                  },
+                  "descripcion": {
+                    "type": "string",
+                    "nullable": true,
+                    "maxLength": 600
+                  },
+                  "anios_experiencia": {
+                    "type": "integer",
+                    "nullable": true,
+                    "minimum": 0,
+                    "maximum": 80
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 72
+                  },
                   "roles": {
                     "type": "array",
                     "items": {
                       "type": "string",
                       "enum": [
                         "ADMIN",
-                        "CLIENTE",
-                        "PRESTAMISTA"
+                        "PRODUCTOR",
+                        "CONTRATISTA"
                       ]
                     },
-                    "default": []
+                    "minItems": 1
                   }
                 }
               }
@@ -927,7 +1336,7 @@
             }
           },
           "409": {
-            "description": "Conflicto",
+            "description": "Conflicto de negocio",
             "content": {
               "application/json": {
                 "schema": {
@@ -998,7 +1407,7 @@
             }
           },
           "409": {
-            "description": "Conflicto",
+            "description": "Conflicto de negocio",
             "content": {
               "application/json": {
                 "schema": {
@@ -1020,10 +1429,9 @@
           {
             "schema": {
               "type": "string",
-              "description": "Búsqueda por texto"
+              "maxLength": 120
             },
             "required": false,
-            "description": "Búsqueda por texto",
             "name": "q",
             "in": "query"
           }
@@ -1068,7 +1476,7 @@
                 "properties": {
                   "nombre": {
                     "type": "string",
-                    "minLength": 1,
+                    "minLength": 2,
                     "maxLength": 120
                   }
                 },
@@ -1125,7 +1533,7 @@
             }
           },
           "409": {
-            "description": "Conflicto",
+            "description": "Conflicto de negocio",
             "content": {
               "application/json": {
                 "schema": {
@@ -1218,7 +1626,7 @@
                 "properties": {
                   "nombre": {
                     "type": "string",
-                    "minLength": 1,
+                    "minLength": 2,
                     "maxLength": 120
                   }
                 },
@@ -1285,7 +1693,7 @@
             }
           },
           "409": {
-            "description": "Conflicto",
+            "description": "Conflicto de negocio",
             "content": {
               "application/json": {
                 "schema": {
@@ -1356,7 +1764,7 @@
             }
           },
           "409": {
-            "description": "Conflicto",
+            "description": "Conflicto de negocio",
             "content": {
               "application/json": {
                 "schema": {
@@ -1377,7 +1785,8 @@
         "parameters": [
           {
             "schema": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 120
             },
             "required": false,
             "name": "q",
@@ -1385,8 +1794,8 @@
           },
           {
             "schema": {
-              "type": "number",
-              "nullable": true
+              "type": "string",
+              "pattern": "^\\d+$"
             },
             "required": false,
             "name": "id_provincia",
@@ -1437,11 +1846,12 @@
                   },
                   "nombre": {
                     "type": "string",
-                    "minLength": 1,
+                    "minLength": 2,
                     "maxLength": 120
                   },
                   "codigo_postal": {
                     "type": "string",
+                    "nullable": true,
                     "maxLength": 16
                   }
                 },
@@ -1499,7 +1909,7 @@
             }
           },
           "409": {
-            "description": "Conflicto",
+            "description": "Conflicto de negocio",
             "content": {
               "application/json": {
                 "schema": {
@@ -1590,24 +2000,17 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "id_provincia": {
-                    "type": "string",
-                    "pattern": "^\\d+$"
-                  },
                   "nombre": {
                     "type": "string",
-                    "minLength": 1,
+                    "minLength": 2,
                     "maxLength": 120
                   },
                   "codigo_postal": {
                     "type": "string",
+                    "nullable": true,
                     "maxLength": 16
                   }
-                },
-                "required": [
-                  "id_provincia",
-                  "nombre"
-                ]
+                }
               }
             }
           }
@@ -1668,7 +2071,7 @@
             }
           },
           "409": {
-            "description": "Conflicto",
+            "description": "Conflicto de negocio",
             "content": {
               "application/json": {
                 "schema": {
@@ -1739,7 +2142,7 @@
             }
           },
           "409": {
-            "description": "Conflicto",
+            "description": "Conflicto de negocio",
             "content": {
               "application/json": {
                 "schema": {
@@ -1761,10 +2164,9 @@
           {
             "schema": {
               "type": "string",
-              "description": "Búsqueda por texto"
+              "maxLength": 120
             },
             "required": false,
-            "description": "Búsqueda por texto",
             "name": "q",
             "in": "query"
           }
@@ -1871,7 +2273,7 @@
             }
           },
           "409": {
-            "description": "Conflicto",
+            "description": "Conflicto de negocio",
             "content": {
               "application/json": {
                 "schema": {
@@ -2033,7 +2435,7 @@
             }
           },
           "409": {
-            "description": "Conflicto",
+            "description": "Conflicto de negocio",
             "content": {
               "application/json": {
                 "schema": {
@@ -2070,8 +2472,23 @@
           }
         ],
         "responses": {
-          "204": {
-            "description": "Eliminado"
+          "200": {
+            "description": "Eliminado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
           },
           "401": {
             "description": "Sin token o token inválido",
@@ -2104,7 +2521,7 @@
             }
           },
           "409": {
-            "description": "Conflicto",
+            "description": "Conflicto de negocio",
             "content": {
               "application/json": {
                 "schema": {
@@ -2121,15 +2538,14 @@
         "tags": [
           "Insumos"
         ],
-        "summary": "Listar insumo",
+        "summary": "Listar insumo (con precio de referencia y unidad)",
         "parameters": [
           {
             "schema": {
               "type": "string",
-              "description": "Búsqueda por texto"
+              "maxLength": 120
             },
             "required": false,
-            "description": "Búsqueda por texto",
             "name": "q",
             "in": "query"
           }
@@ -2158,7 +2574,7 @@
         "tags": [
           "Insumos"
         ],
-        "summary": "Crear insumo",
+        "summary": "Crear insumo (con precio de referencia y unidad)",
         "description": "Requiere rol: ADMIN.",
         "security": [
           {
@@ -2181,10 +2597,23 @@
                     "type": "string",
                     "nullable": true,
                     "maxLength": 255
+                  },
+                  "unidad": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 20,
+                    "default": "unidad"
+                  },
+                  "precio_referencia": {
+                    "type": "number",
+                    "nullable": true,
+                    "minimum": 0,
+                    "maximum": 999999999
                   }
                 },
                 "required": [
-                  "nombre"
+                  "nombre",
+                  "precio_referencia"
                 ]
               }
             }
@@ -2236,7 +2665,7 @@
             }
           },
           "409": {
-            "description": "Conflicto",
+            "description": "Conflicto de negocio",
             "content": {
               "application/json": {
                 "schema": {
@@ -2253,7 +2682,7 @@
         "tags": [
           "Insumos"
         ],
-        "summary": "Detalle de insumo",
+        "summary": "Detalle de insumo (con precio de referencia y unidad)",
         "parameters": [
           {
             "schema": {
@@ -2299,7 +2728,7 @@
         "tags": [
           "Insumos"
         ],
-        "summary": "Actualizar insumo",
+        "summary": "Actualizar insumo (con precio de referencia y unidad)",
         "description": "Requiere rol: ADMIN.",
         "security": [
           {
@@ -2336,6 +2765,18 @@
                     "type": "string",
                     "nullable": true,
                     "maxLength": 255
+                  },
+                  "unidad": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 20,
+                    "default": "unidad"
+                  },
+                  "precio_referencia": {
+                    "type": "number",
+                    "nullable": true,
+                    "minimum": 0,
+                    "maximum": 999999999
                   }
                 }
               }
@@ -2398,7 +2839,7 @@
             }
           },
           "409": {
-            "description": "Conflicto",
+            "description": "Conflicto de negocio",
             "content": {
               "application/json": {
                 "schema": {
@@ -2413,7 +2854,7 @@
         "tags": [
           "Insumos"
         ],
-        "summary": "Eliminar insumo",
+        "summary": "Eliminar insumo (con precio de referencia y unidad)",
         "description": "Requiere rol: ADMIN.",
         "security": [
           {
@@ -2435,8 +2876,23 @@
           }
         ],
         "responses": {
-          "204": {
-            "description": "Eliminado"
+          "200": {
+            "description": "Eliminado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
           },
           "401": {
             "description": "Sin token o token inválido",
@@ -2469,7 +2925,7 @@
             }
           },
           "409": {
-            "description": "Conflicto",
+            "description": "Conflicto de negocio",
             "content": {
               "application/json": {
                 "schema": {
@@ -2481,427 +2937,41 @@
         }
       }
     },
-    "/clientes": {
+    "/contratistas": {
       "get": {
         "tags": [
-          "Clientes"
+          "Contratistas"
         ],
-        "summary": "Listar perfil de cliente",
-        "description": "Requiere rol: ADMIN.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
+        "summary": "Listado público de contratistas",
+        "description": "Con `id_campo` filtra por la localidad del campo (cercanía) y, si no hay resultados, por su provincia; `alcance` indica cuál aplicó. Incluye servicios activos con precio vigente, valoración promedio y trabajos completados.",
         "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true,
+              "default": 1
+            },
+            "required": false,
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true,
+              "maximum": 100,
+              "default": 20
+            },
+            "required": false,
+            "name": "pageSize",
+            "in": "query"
+          },
           {
             "schema": {
               "type": "string",
-              "description": "Búsqueda por texto"
-            },
-            "required": false,
-            "description": "Búsqueda por texto",
-            "name": "q",
-            "in": "query"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Listado",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {},
-                    "additionalProperties": {
-                      "nullable": true
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Sin token o token inválido",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Sin permisos",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "Clientes"
-        ],
-        "summary": "Crear perfil de cliente",
-        "description": "Requiere rol: ADMIN.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "description": "Datos",
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "id_user": {
-                    "type": "string",
-                    "pattern": "^\\d+$"
-                  },
-                  "cuit": {
-                    "type": "string",
-                    "nullable": true,
-                    "maxLength": 20
-                  }
-                },
-                "required": [
-                  "id_user"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Creado",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {},
-                  "additionalProperties": {
-                    "nullable": true
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Datos inválidos",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Sin token o token inválido",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Sin permisos",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflicto",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/clientes/{id}": {
-      "get": {
-        "tags": [
-          "Clientes"
-        ],
-        "summary": "Detalle de perfil de cliente",
-        "description": "Requiere rol: ADMIN.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "exclusiveMinimum": true,
-              "description": "Identificador numérico"
-            },
-            "required": true,
-            "description": "Identificador numérico",
-            "name": "id",
-            "in": "path"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Encontrado",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {},
-                  "additionalProperties": {
-                    "nullable": true
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Sin token o token inválido",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Sin permisos",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No encontrado",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "Clientes"
-        ],
-        "summary": "Actualizar perfil de cliente",
-        "description": "Requiere rol: ADMIN.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "exclusiveMinimum": true,
-              "description": "Identificador numérico"
-            },
-            "required": true,
-            "description": "Identificador numérico",
-            "name": "id",
-            "in": "path"
-          }
-        ],
-        "requestBody": {
-          "description": "Datos",
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "cuit": {
-                    "type": "string",
-                    "nullable": true,
-                    "maxLength": 20
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Actualizado",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {},
-                  "additionalProperties": {
-                    "nullable": true
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Datos inválidos",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Sin token o token inválido",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Sin permisos",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No encontrado",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflicto",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "Clientes"
-        ],
-        "summary": "Eliminar perfil de cliente",
-        "description": "Requiere rol: ADMIN.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "exclusiveMinimum": true,
-              "description": "Identificador numérico"
-            },
-            "required": true,
-            "description": "Identificador numérico",
-            "name": "id",
-            "in": "path"
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Eliminado"
-          },
-          "401": {
-            "description": "Sin token o token inválido",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Sin permisos",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No encontrado",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflicto",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/prestamistas": {
-      "get": {
-        "tags": [
-          "Prestamistas"
-        ],
-        "summary": "Listar perfil de prestamista",
-        "parameters": [
-          {
-            "schema": {
-              "type": "string"
+              "maxLength": 120
             },
             "required": false,
             "name": "q",
@@ -2924,374 +2994,23 @@
             "required": false,
             "name": "id_provincia",
             "in": "query"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Listado",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {},
-                    "additionalProperties": {
-                      "nullable": true
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "Prestamistas"
-        ],
-        "summary": "Crear perfil de prestamista",
-        "description": "Requiere rol: ADMIN.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "description": "Datos",
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "id_user": {
-                    "type": "string",
-                    "pattern": "^\\d+$"
-                  },
-                  "cuit": {
-                    "type": "string",
-                    "nullable": true,
-                    "maxLength": 20
-                  }
-                },
-                "required": [
-                  "id_user"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Creado",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {},
-                  "additionalProperties": {
-                    "nullable": true
-                  }
-                }
-              }
-            }
           },
-          "400": {
-            "description": "Datos inválidos",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Sin token o token inválido",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Sin permisos",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflicto",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/prestamistas/{id}": {
-      "get": {
-        "tags": [
-          "Prestamistas"
-        ],
-        "summary": "Detalle de perfil de prestamista",
-        "parameters": [
-          {
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "exclusiveMinimum": true,
-              "description": "Identificador numérico"
-            },
-            "required": true,
-            "description": "Identificador numérico",
-            "name": "id",
-            "in": "path"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Encontrado",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {},
-                  "additionalProperties": {
-                    "nullable": true
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No encontrado",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "Prestamistas"
-        ],
-        "summary": "Actualizar perfil de prestamista",
-        "description": "Requiere rol: ADMIN.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "exclusiveMinimum": true,
-              "description": "Identificador numérico"
-            },
-            "required": true,
-            "description": "Identificador numérico",
-            "name": "id",
-            "in": "path"
-          }
-        ],
-        "requestBody": {
-          "description": "Datos",
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "id_user": {
-                    "type": "string",
-                    "pattern": "^\\d+$"
-                  },
-                  "cuit": {
-                    "type": "string",
-                    "nullable": true,
-                    "maxLength": 20
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Actualizado",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {},
-                  "additionalProperties": {
-                    "nullable": true
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Datos inválidos",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Sin token o token inválido",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Sin permisos",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No encontrado",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflicto",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "Prestamistas"
-        ],
-        "summary": "Eliminar perfil de prestamista",
-        "description": "Requiere rol: ADMIN.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "exclusiveMinimum": true,
-              "description": "Identificador numérico"
-            },
-            "required": true,
-            "description": "Identificador numérico",
-            "name": "id",
-            "in": "path"
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Eliminado"
-          },
-          "401": {
-            "description": "Sin token o token inválido",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Sin permisos",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No encontrado",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflicto",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/admins": {
-      "get": {
-        "tags": [
-          "Admins"
-        ],
-        "summary": "Listar perfil de administrador",
-        "description": "Requiere rol: ADMIN.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
           {
             "schema": {
               "type": "string",
-              "description": "Búsqueda por texto"
+              "pattern": "^\\d+$"
             },
             "required": false,
-            "description": "Búsqueda por texto",
-            "name": "q",
+            "name": "id_campo",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d+$"
+            },
+            "required": false,
+            "name": "id_categoria",
             "in": "query"
           }
         ],
@@ -3301,130 +3020,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {},
-                    "additionalProperties": {
-                      "nullable": true
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Page_Contratistas"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "alcance": {
+                          "type": "string",
+                          "enum": [
+                            "localidad",
+                            "provincia",
+                            "todos"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "alcance"
+                      ]
                     }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Sin token o token inválido",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Sin permisos",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "Admins"
-        ],
-        "summary": "Crear perfil de administrador",
-        "description": "Requiere rol: ADMIN.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "description": "Datos",
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "id_user": {
-                    "type": "string",
-                    "pattern": "^\\d+$"
-                  },
-                  "area_responsable": {
-                    "type": "string",
-                    "nullable": true,
-                    "maxLength": 100
-                  },
-                  "observaciones": {
-                    "type": "string",
-                    "nullable": true
-                  }
-                },
-                "required": [
-                  "id_user"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Creado",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {},
-                  "additionalProperties": {
-                    "nullable": true
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Datos inválidos",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Sin token o token inválido",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Sin permisos",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflicto",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  ]
                 }
               }
             }
@@ -3432,18 +3048,12 @@
         }
       }
     },
-    "/admins/{id}": {
+    "/contratistas/{id}": {
       "get": {
         "tags": [
-          "Admins"
+          "Contratistas"
         ],
-        "summary": "Detalle de perfil de administrador",
-        "description": "Requiere rol: ADMIN.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
+        "summary": "Perfil público de un contratista con servicios y valoraciones",
         "parameters": [
           {
             "schema": {
@@ -3460,7 +3070,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Encontrado",
+            "description": "Contratista",
             "content": {
               "application/json": {
                 "schema": {
@@ -3473,216 +3083,8 @@
               }
             }
           },
-          "401": {
-            "description": "Sin token o token inválido",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Sin permisos",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
           "404": {
             "description": "No encontrado",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "Admins"
-        ],
-        "summary": "Actualizar perfil de administrador",
-        "description": "Requiere rol: ADMIN.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "exclusiveMinimum": true,
-              "description": "Identificador numérico"
-            },
-            "required": true,
-            "description": "Identificador numérico",
-            "name": "id",
-            "in": "path"
-          }
-        ],
-        "requestBody": {
-          "description": "Datos",
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "id_user": {
-                    "type": "string",
-                    "pattern": "^\\d+$"
-                  },
-                  "area_responsable": {
-                    "type": "string",
-                    "nullable": true,
-                    "maxLength": 100
-                  },
-                  "observaciones": {
-                    "type": "string",
-                    "nullable": true
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Actualizado",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {},
-                  "additionalProperties": {
-                    "nullable": true
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Datos inválidos",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Sin token o token inválido",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Sin permisos",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No encontrado",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflicto",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "Admins"
-        ],
-        "summary": "Eliminar perfil de administrador",
-        "description": "Requiere rol: ADMIN.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "exclusiveMinimum": true,
-              "description": "Identificador numérico"
-            },
-            "required": true,
-            "description": "Identificador numérico",
-            "name": "id",
-            "in": "path"
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Eliminado"
-          },
-          "401": {
-            "description": "Sin token o token inválido",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Sin permisos",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No encontrado",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflicto",
             "content": {
               "application/json": {
                 "schema": {
@@ -3699,11 +3101,35 @@
         "tags": [
           "Servicios"
         ],
-        "summary": "Listar servicio",
+        "summary": "Catálogo de servicios activos (paginado, con precio vigente)",
         "parameters": [
           {
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true,
+              "default": 1
+            },
+            "required": false,
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true,
+              "maximum": 100,
+              "default": 20
+            },
+            "required": false,
+            "name": "pageSize",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 120
             },
             "required": false,
             "name": "q",
@@ -3724,7 +3150,34 @@
               "pattern": "^\\d+$"
             },
             "required": false,
-            "name": "id_prestamista",
+            "name": "id_contratista",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d+$"
+            },
+            "required": false,
+            "name": "id_provincia",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d+$"
+            },
+            "required": false,
+            "name": "id_localidad",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "boolean",
+              "nullable": true
+            },
+            "required": false,
+            "name": "incluir_inactivos",
             "in": "query"
           }
         ],
@@ -3734,14 +3187,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {},
-                    "additionalProperties": {
-                      "nullable": true
-                    }
-                  }
+                  "$ref": "#/components/schemas/Page_Servicios"
                 }
               }
             }
@@ -3752,8 +3198,8 @@
         "tags": [
           "Servicios"
         ],
-        "summary": "Crear servicio",
-        "description": "Requiere rol: PRESTAMISTA o ADMIN.",
+        "summary": "Publicar un servicio (CUU)",
+        "description": "El servicio pertenece al contratista autenticado. `precio_inicial` crea el precio vigente desde hoy.\n\nRequiere rol: CONTRATISTA.",
         "security": [
           {
             "bearerAuth": []
@@ -3774,20 +3220,17 @@
                   "descripcion": {
                     "type": "string",
                     "nullable": true,
-                    "maxLength": 255
+                    "maxLength": 500
                   },
                   "id_categoria": {
-                    "type": "string",
-                    "pattern": "^\\d+$"
-                  },
-                  "id_prestamista": {
                     "type": "string",
                     "pattern": "^\\d+$"
                   },
                   "precio_inicial": {
                     "type": "number",
                     "minimum": 0,
-                    "exclusiveMinimum": true
+                    "exclusiveMinimum": true,
+                    "maximum": 999999999
                   }
                 },
                 "required": [
@@ -3842,16 +3285,6 @@
                 }
               }
             }
-          },
-          "409": {
-            "description": "Conflicto",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
           }
         }
       }
@@ -3861,7 +3294,7 @@
         "tags": [
           "Servicios"
         ],
-        "summary": "Detalle de servicio",
+        "summary": "Detalle con historial de precios",
         "parameters": [
           {
             "schema": {
@@ -3878,7 +3311,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Encontrado",
+            "description": "Servicio",
             "content": {
               "application/json": {
                 "schema": {
@@ -3907,8 +3340,8 @@
         "tags": [
           "Servicios"
         ],
-        "summary": "Actualizar servicio",
-        "description": "Requiere rol: PRESTAMISTA o ADMIN.",
+        "summary": "Actualizar servicio (nombre, descripción, categoría, activo)",
+        "description": "Requiere rol: CONTRATISTA o ADMIN.",
         "security": [
           {
             "bearerAuth": []
@@ -3943,15 +3376,14 @@
                   "descripcion": {
                     "type": "string",
                     "nullable": true,
-                    "maxLength": 255
+                    "maxLength": 500
                   },
                   "id_categoria": {
                     "type": "string",
                     "pattern": "^\\d+$"
                   },
-                  "id_prestamista": {
-                    "type": "string",
-                    "pattern": "^\\d+$"
+                  "activo": {
+                    "type": "boolean"
                   }
                 }
               }
@@ -4005,16 +3437,6 @@
           },
           "404": {
             "description": "No encontrado",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflicto",
             "content": {
               "application/json": {
                 "schema": {
@@ -4029,276 +3451,8 @@
         "tags": [
           "Servicios"
         ],
-        "summary": "Eliminar servicio",
-        "description": "Requiere rol: PRESTAMISTA o ADMIN.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "exclusiveMinimum": true,
-              "description": "Identificador numérico"
-            },
-            "required": true,
-            "description": "Identificador numérico",
-            "name": "id",
-            "in": "path"
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Eliminado"
-          },
-          "401": {
-            "description": "Sin token o token inválido",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Sin permisos",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No encontrado",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflicto",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/campos": {
-      "get": {
-        "tags": [
-          "Campos"
-        ],
-        "summary": "Listar campo",
-        "description": "Requiere rol: CLIENTE o ADMIN.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
-            "name": "q",
-            "in": "query"
-          },
-          {
-            "schema": {
-              "type": "string",
-              "pattern": "^\\d+$"
-            },
-            "required": false,
-            "name": "id_cliente",
-            "in": "query"
-          },
-          {
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "exclusiveMinimum": true
-            },
-            "required": false,
-            "name": "page",
-            "in": "query"
-          },
-          {
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "exclusiveMinimum": true
-            },
-            "required": false,
-            "name": "pageSize",
-            "in": "query"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Listado",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {},
-                    "additionalProperties": {
-                      "nullable": true
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Sin token o token inválido",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Sin permisos",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "Campos"
-        ],
-        "summary": "Crear campo",
-        "description": "Requiere rol: CLIENTE o ADMIN.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "description": "Datos",
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "id_cliente": {
-                    "type": "string",
-                    "pattern": "^\\d+$"
-                  },
-                  "nombre": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 100
-                  },
-                  "coordenadas": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 100
-                  },
-                  "hectareas": {
-                    "type": "number",
-                    "minimum": 0,
-                    "exclusiveMinimum": true
-                  }
-                },
-                "required": [
-                  "coordenadas",
-                  "hectareas"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Creado",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {},
-                  "additionalProperties": {
-                    "nullable": true
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Datos inválidos",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Sin token o token inválido",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Sin permisos",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflicto",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/campos/{id}": {
-      "get": {
-        "tags": [
-          "Campos"
-        ],
-        "summary": "Detalle de campo",
-        "description": "Requiere rol: CLIENTE o ADMIN.",
+        "summary": "Desactivar servicio (baja lógica)",
+        "description": "Requiere rol: CONTRATISTA o ADMIN.",
         "security": [
           {
             "bearerAuth": []
@@ -4320,7 +3474,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Encontrado",
+            "description": "Servicio desactivado",
             "content": {
               "application/json": {
                 "schema": {
@@ -4355,338 +3509,6 @@
           },
           "404": {
             "description": "No encontrado",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "Campos"
-        ],
-        "summary": "Actualizar campo",
-        "description": "Requiere rol: CLIENTE o ADMIN.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "exclusiveMinimum": true,
-              "description": "Identificador numérico"
-            },
-            "required": true,
-            "description": "Identificador numérico",
-            "name": "id",
-            "in": "path"
-          }
-        ],
-        "requestBody": {
-          "description": "Datos",
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "coordenadas": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 100
-                  },
-                  "hectareas": {
-                    "type": "number",
-                    "minimum": 0,
-                    "exclusiveMinimum": true
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Actualizado",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {},
-                  "additionalProperties": {
-                    "nullable": true
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Datos inválidos",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Sin token o token inválido",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Sin permisos",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No encontrado",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflicto",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "Campos"
-        ],
-        "summary": "Eliminar campo",
-        "description": "Requiere rol: CLIENTE o ADMIN.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "exclusiveMinimum": true,
-              "description": "Identificador numérico"
-            },
-            "required": true,
-            "description": "Identificador numérico",
-            "name": "id",
-            "in": "path"
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Eliminado"
-          },
-          "401": {
-            "description": "Sin token o token inválido",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Sin permisos",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No encontrado",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflicto",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/precios": {
-      "get": {
-        "tags": [
-          "Precios"
-        ],
-        "summary": "Listar precios de un servicio",
-        "parameters": [
-          {
-            "schema": {
-              "type": "number",
-              "nullable": true
-            },
-            "required": false,
-            "name": "id_servicio",
-            "in": "query"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Historial (vacío si no se indica id_servicio)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {},
-                    "additionalProperties": {
-                      "nullable": true
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "Precios"
-        ],
-        "summary": "Cargar precio (dueño del servicio)",
-        "description": "Requiere rol: PRESTAMISTA o ADMIN.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "description": "Datos",
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "id_servicio": {
-                    "type": "string",
-                    "pattern": "^\\d+$"
-                  },
-                  "fecha_desde": {
-                    "type": "string",
-                    "nullable": true,
-                    "format": "date-time"
-                  },
-                  "valor": {
-                    "type": "number",
-                    "minimum": 0,
-                    "exclusiveMinimum": true
-                  }
-                },
-                "required": [
-                  "id_servicio",
-                  "fecha_desde",
-                  "valor"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Creado",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {},
-                  "additionalProperties": {
-                    "nullable": true
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Datos inválidos",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Sin token o token inválido",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Sin permisos",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No encontrado",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflicto",
             "content": {
               "application/json": {
                 "schema": {
@@ -4707,17 +3529,18 @@
         "parameters": [
           {
             "schema": {
-              "type": "number",
-              "nullable": true
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
             },
-            "required": false,
+            "required": true,
             "name": "id_servicio",
             "in": "path"
           }
         ],
         "responses": {
           "200": {
-            "description": "Historial ordenado por fecha desc",
+            "description": "Historial desc",
             "content": {
               "application/json": {
                 "schema": {
@@ -4741,21 +3564,22 @@
         "tags": [
           "Precios"
         ],
-        "summary": "Precio vigente del servicio",
+        "summary": "Precio vigente (mayor fecha_desde ≤ hoy)",
         "parameters": [
           {
             "schema": {
-              "type": "number",
-              "nullable": true
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
             },
-            "required": false,
+            "required": true,
             "name": "id_servicio",
             "in": "path"
           }
         ],
         "responses": {
           "200": {
-            "description": "Precio vigente",
+            "description": "Precio",
             "content": {
               "application/json": {
                 "schema": {
@@ -4833,7 +3657,7 @@
           "Precios"
         ],
         "summary": "Actualizar precio",
-        "description": "Requiere rol: PRESTAMISTA o ADMIN.",
+        "description": "Requiere rol: CONTRATISTA o ADMIN.",
         "security": [
           {
             "bearerAuth": []
@@ -4862,13 +3686,13 @@
                 "properties": {
                   "fecha_desde": {
                     "type": "string",
-                    "nullable": true,
                     "format": "date-time"
                   },
                   "valor": {
                     "type": "number",
                     "minimum": 0,
-                    "exclusiveMinimum": true
+                    "exclusiveMinimum": true,
+                    "maximum": 999999999
                   }
                 }
               }
@@ -4931,7 +3755,7 @@
             }
           },
           "409": {
-            "description": "Conflicto",
+            "description": "Conflicto de negocio",
             "content": {
               "application/json": {
                 "schema": {
@@ -4946,8 +3770,8 @@
         "tags": [
           "Precios"
         ],
-        "summary": "Eliminar precio",
-        "description": "Requiere rol: PRESTAMISTA o ADMIN.",
+        "summary": "Eliminar precio (no el único vigente de un servicio activo)",
+        "description": "Requiere rol: CONTRATISTA o ADMIN.",
         "security": [
           {
             "bearerAuth": []
@@ -5015,102 +3839,27 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Conflicto de negocio",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }
     },
-    "/solicitudes": {
-      "get": {
-        "tags": [
-          "Solicitudes"
-        ],
-        "summary": "Listar solicitudes (el cliente ve las suyas, el prestamista las recibidas, el admin todas)",
-        "description": "Requiere rol: ADMIN o CLIENTE o PRESTAMISTA.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "enum": [
-                "pendiente",
-                "aceptada",
-                "rechazada",
-                "completada"
-              ]
-            },
-            "required": false,
-            "name": "estado",
-            "in": "query"
-          },
-          {
-            "schema": {
-              "type": "string",
-              "pattern": "^\\d+$"
-            },
-            "required": false,
-            "name": "id_cliente",
-            "in": "query"
-          },
-          {
-            "schema": {
-              "type": "string",
-              "pattern": "^\\d+$"
-            },
-            "required": false,
-            "name": "id_prestamista",
-            "in": "query"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Listado con servicio, campo, cliente y prestamista",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {},
-                    "additionalProperties": {
-                      "nullable": true
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Sin token o token inválido",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Sin permisos",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      },
+    "/precios": {
       "post": {
         "tags": [
-          "Solicitudes"
+          "Precios"
         ],
-        "summary": "Solicitar un servicio",
-        "description": "El cliente se toma del token y el prestamista del servicio. precio_servicio = precio vigente × hectáreas; precio_total suma los insumos.\n\nRequiere rol: CLIENTE.",
+        "summary": "Cargar precio (dueño del servicio)",
+        "description": "Requiere rol: CONTRATISTA o ADMIN.",
         "security": [
           {
             "bearerAuth": []
@@ -5127,66 +3876,21 @@
                     "type": "string",
                     "pattern": "^\\d+$"
                   },
-                  "id_campo": {
+                  "fecha_desde": {
                     "type": "string",
-                    "pattern": "^\\d+$"
+                    "format": "date-time"
                   },
-                  "hectareas_trabajadas": {
+                  "valor": {
                     "type": "number",
                     "minimum": 0,
-                    "exclusiveMinimum": true
-                  },
-                  "fecha_inicio": {
-                    "type": "string",
-                    "nullable": true,
-                    "format": "date-time"
-                  },
-                  "fecha_fin": {
-                    "type": "string",
-                    "nullable": true,
-                    "format": "date-time"
-                  },
-                  "insumos": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "id_insumo": {
-                          "type": "string",
-                          "pattern": "^\\d+$"
-                        },
-                        "cantidad": {
-                          "type": "number",
-                          "minimum": 0,
-                          "exclusiveMinimum": true
-                        },
-                        "precio_unit": {
-                          "type": "number",
-                          "nullable": true,
-                          "minimum": 0
-                        },
-                        "proveedor": {
-                          "type": "string",
-                          "enum": [
-                            "CLIENTE",
-                            "PRESTAMISTA"
-                          ]
-                        }
-                      },
-                      "required": [
-                        "id_insumo",
-                        "cantidad",
-                        "precio_unit",
-                        "proveedor"
-                      ]
-                    },
-                    "default": []
+                    "exclusiveMinimum": true,
+                    "maximum": 999999999
                   }
                 },
                 "required": [
                   "id_servicio",
-                  "id_campo",
-                  "hectareas_trabajadas"
+                  "fecha_desde",
+                  "valor"
                 ]
               }
             }
@@ -5194,7 +3898,7 @@
         },
         "responses": {
           "201": {
-            "description": "Solicitud creada en estado pendiente",
+            "description": "Creado",
             "content": {
               "application/json": {
                 "schema": {
@@ -5248,7 +3952,7 @@
             }
           },
           "409": {
-            "description": "Conflicto",
+            "description": "Conflicto de negocio",
             "content": {
               "application/json": {
                 "schema": {
@@ -5260,13 +3964,192 @@
         }
       }
     },
-    "/solicitudes/{id}": {
+    "/campos": {
       "get": {
         "tags": [
-          "Solicitudes"
+          "Campos"
         ],
-        "summary": "Detalle completo de una solicitud",
-        "description": "Requiere rol: ADMIN o CLIENTE o PRESTAMISTA.",
+        "summary": "Campos del productor (ADMIN: todos)",
+        "description": "Requiere rol: PRODUCTOR o ADMIN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "required": false,
+            "name": "q",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d+$"
+            },
+            "required": false,
+            "name": "id_productor",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Listado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": {
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin token o token inválido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sin permisos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Campos"
+        ],
+        "summary": "Registrar campo",
+        "description": "Requiere rol: PRODUCTOR o ADMIN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "description": "Datos",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nombre": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 100
+                  },
+                  "id_localidad": {
+                    "type": "string",
+                    "pattern": "^\\d+$"
+                  },
+                  "hectareas": {
+                    "type": "number",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 1000000
+                  },
+                  "latitud": {
+                    "type": "number",
+                    "nullable": true,
+                    "minimum": -90,
+                    "maximum": 90
+                  },
+                  "longitud": {
+                    "type": "number",
+                    "nullable": true,
+                    "minimum": -180,
+                    "maximum": 180
+                  },
+                  "id_productor": {
+                    "type": "string",
+                    "pattern": "^\\d+$"
+                  }
+                },
+                "required": [
+                  "nombre",
+                  "id_localidad",
+                  "hectareas"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Creado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": {
+                    "nullable": true
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin token o token inválido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sin permisos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/campos/{id}": {
+      "get": {
+        "tags": [
+          "Campos"
+        ],
+        "summary": "Detalle con solicitudes (dueño, ADMIN o contratista con solicitud sobre el campo)",
+        "description": "Requiere rol: ADMIN o PRODUCTOR o CONTRATISTA.",
         "security": [
           {
             "bearerAuth": []
@@ -5288,7 +4171,552 @@
         ],
         "responses": {
           "200": {
-            "description": "Solicitud con servicio, categoría, campo, cliente, prestamista e insumos",
+            "description": "Campo",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": {
+                    "nullable": true
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin token o token inválido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sin permisos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No encontrado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Campos"
+        ],
+        "summary": "Actualizar campo (no se pueden reducir las hectáreas por debajo de las comprometidas)",
+        "description": "Requiere rol: PRODUCTOR o ADMIN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true,
+              "description": "Identificador numérico"
+            },
+            "required": true,
+            "description": "Identificador numérico",
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "description": "Datos",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nombre": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 100
+                  },
+                  "id_localidad": {
+                    "type": "string",
+                    "pattern": "^\\d+$"
+                  },
+                  "hectareas": {
+                    "type": "number",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 1000000
+                  },
+                  "latitud": {
+                    "type": "number",
+                    "nullable": true,
+                    "minimum": -90,
+                    "maximum": 90
+                  },
+                  "longitud": {
+                    "type": "number",
+                    "nullable": true,
+                    "minimum": -180,
+                    "maximum": 180
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Actualizado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": {
+                    "nullable": true
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin token o token inválido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sin permisos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No encontrado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto de negocio",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Campos"
+        ],
+        "summary": "Eliminar campo sin solicitudes",
+        "description": "Requiere rol: PRODUCTOR o ADMIN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true,
+              "description": "Identificador numérico"
+            },
+            "required": true,
+            "description": "Identificador numérico",
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Eliminado"
+          },
+          "401": {
+            "description": "Sin token o token inválido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sin permisos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No encontrado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto de negocio",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/solicitudes": {
+      "get": {
+        "tags": [
+          "Solicitudes"
+        ],
+        "summary": "Listar solicitudes (productor: las suyas; contratista: las recibidas; admin: todas)",
+        "description": "Requiere rol: ADMIN o PRODUCTOR o CONTRATISTA.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true,
+              "default": 1
+            },
+            "required": false,
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true,
+              "maximum": 100,
+              "default": 20
+            },
+            "required": false,
+            "name": "pageSize",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pendiente",
+                "aceptada",
+                "rechazada",
+                "cancelada",
+                "completada"
+              ]
+            },
+            "required": false,
+            "name": "estado",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d+$"
+            },
+            "required": false,
+            "name": "id_productor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d+$"
+            },
+            "required": false,
+            "name": "id_contratista",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d+$"
+            },
+            "required": false,
+            "name": "id_campo",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Listado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_Solicitudes"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin token o token inválido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sin permisos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Solicitudes"
+        ],
+        "summary": "Solicitar un servicio (CUU)",
+        "description": "Productor autenticado; contratista = dueño del servicio. precio_servicio = precio vigente × hectáreas; los insumos toman el precio de referencia del catálogo y solo suman si los aporta el contratista.\n\nRequiere rol: PRODUCTOR.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "description": "Datos",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id_servicio": {
+                    "type": "string",
+                    "pattern": "^\\d+$"
+                  },
+                  "id_campo": {
+                    "type": "string",
+                    "pattern": "^\\d+$"
+                  },
+                  "hectareas_trabajadas": {
+                    "type": "number",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 1000000
+                  },
+                  "fecha_inicio": {
+                    "type": "string",
+                    "nullable": true,
+                    "format": "date-time"
+                  },
+                  "fecha_fin": {
+                    "type": "string",
+                    "nullable": true,
+                    "format": "date-time"
+                  },
+                  "observaciones": {
+                    "type": "string",
+                    "nullable": true,
+                    "maxLength": 500
+                  },
+                  "insumos": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id_insumo": {
+                          "type": "string",
+                          "pattern": "^\\d+$"
+                        },
+                        "cantidad": {
+                          "type": "number",
+                          "minimum": 0,
+                          "exclusiveMinimum": true,
+                          "maximum": 1000000
+                        },
+                        "proveedor": {
+                          "type": "string",
+                          "enum": [
+                            "PRODUCTOR",
+                            "CONTRATISTA"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id_insumo",
+                        "cantidad",
+                        "proveedor"
+                      ]
+                    },
+                    "maxItems": 20,
+                    "default": []
+                  }
+                },
+                "required": [
+                  "id_servicio",
+                  "id_campo",
+                  "hectareas_trabajadas"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Solicitud pendiente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": {
+                    "nullable": true
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin token o token inválido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sin permisos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No encontrado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto de negocio",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/solicitudes/{id}": {
+      "get": {
+        "tags": [
+          "Solicitudes"
+        ],
+        "summary": "Detalle completo (con contacto de la contraparte, insumos e importes)",
+        "description": "Requiere rol: ADMIN o PRODUCTOR o CONTRATISTA.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true,
+              "description": "Identificador numérico"
+            },
+            "required": true,
+            "description": "Identificador numérico",
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Solicitud",
             "content": {
               "application/json": {
                 "schema": {
@@ -5337,8 +4765,8 @@
         "tags": [
           "Solicitudes"
         ],
-        "summary": "Cancelar solicitud (cliente, solo si está pendiente)",
-        "description": "Requiere rol: CLIENTE o ADMIN.",
+        "summary": "Eliminar solicitud (solo ADMIN)",
+        "description": "Requiere rol: ADMIN.",
         "security": [
           {
             "bearerAuth": []
@@ -5360,7 +4788,7 @@
         ],
         "responses": {
           "204": {
-            "description": "Cancelada"
+            "description": "Eliminada"
           },
           "401": {
             "description": "Sin token o token inválido",
@@ -5391,16 +4819,6 @@
                 }
               }
             }
-          },
-          "409": {
-            "description": "Conflicto",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
           }
         }
       }
@@ -5410,8 +4828,8 @@
         "tags": [
           "Solicitudes"
         ],
-        "summary": "Cambiar estado",
-        "description": "Transiciones válidas: pendiente → aceptada | rechazada; aceptada → completada. Solo el prestamista de la solicitud (o ADMIN).\n\nRequiere rol: PRESTAMISTA o ADMIN.",
+        "summary": "Cambiar estado (CUU)",
+        "description": "pendiente → aceptada | rechazada (contratista) | cancelada (productor); aceptada → completada (contratista) | cancelada (ambos, con motivo). Al aceptar se fija fecha_inicio; al completar, fecha_fin.\n\nRequiere rol: ADMIN o PRODUCTOR o CONTRATISTA.",
         "security": [
           {
             "bearerAuth": []
@@ -5441,9 +4859,9 @@
                   "estado": {
                     "type": "string",
                     "enum": [
-                      "pendiente",
                       "aceptada",
                       "rechazada",
+                      "cancelada",
                       "completada"
                     ]
                   },
@@ -5456,6 +4874,12 @@
                     "type": "string",
                     "nullable": true,
                     "format": "date-time"
+                  },
+                  "motivo": {
+                    "type": "string",
+                    "nullable": true,
+                    "minLength": 3,
+                    "maxLength": 500
                   }
                 },
                 "required": [
@@ -5467,7 +4891,7 @@
         },
         "responses": {
           "200": {
-            "description": "Solicitud actualizada",
+            "description": "Actualizada",
             "content": {
               "application/json": {
                 "schema": {
@@ -5521,7 +4945,179 @@
             }
           },
           "409": {
-            "description": "Conflicto",
+            "description": "Conflicto de negocio",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/valoraciones": {
+      "get": {
+        "tags": [
+          "Valoraciones"
+        ],
+        "summary": "Valoraciones por contratista o por servicio, con promedio",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d+$"
+            },
+            "required": false,
+            "name": "id_contratista",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d+$"
+            },
+            "required": false,
+            "name": "id_servicio",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Listado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {},
+                        "additionalProperties": {
+                          "nullable": true
+                        }
+                      }
+                    },
+                    "promedio": {
+                      "type": "number",
+                      "nullable": true
+                    },
+                    "cantidad": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "promedio",
+                    "cantidad"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Valoraciones"
+        ],
+        "summary": "Valorar una solicitud completada (CUU adicional)",
+        "description": "Requiere rol: PRODUCTOR.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "description": "Datos",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id_solicitud": {
+                    "type": "string",
+                    "pattern": "^\\d+$"
+                  },
+                  "puntaje": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5
+                  },
+                  "comentario": {
+                    "type": "string",
+                    "nullable": true,
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "id_solicitud",
+                  "puntaje"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Creada",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": {
+                    "nullable": true
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin token o token inválido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sin permisos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No encontrado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto de negocio",
             "content": {
               "application/json": {
                 "schema": {

@@ -1,6 +1,5 @@
 generator client {
   provider = "prisma-client-js"
-  //output   = "../generated/prisma"
 }
 
 datasource db {
@@ -8,45 +7,14 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model admin_profile {
-  id_user          BigInt  @id @db.UnsignedBigInt
-  area_responsable String? @default("General") @db.VarChar(100)
-  observaciones    String? @db.Text
-  users            users   @relation(fields: [id_user], references: [id_user], onDelete: Cascade, map: "fk_admin_user")
-}
+// ─────────────────────────────────────────────────────────────
+// Ubicación
+// ─────────────────────────────────────────────────────────────
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-model campo {
-  id_campo        BigInt          @id @default(autoincrement()) @db.UnsignedBigInt
-  id_cliente      BigInt          @db.UnsignedBigInt
-  coordenadas     String          @db.VarChar(100)
-  hectareas       Decimal         @db.Decimal(10, 2)
-  cliente_profile cliente_profile @relation(fields: [id_cliente], references: [id_user], map: "fk_campo_cliente")
-  solicitud       solicitud[]
-
-  @@index([id_cliente], map: "idx_campo_cliente")
-}
-
-model categoria {
-  id_categoria BigInt     @id @default(autoincrement()) @db.UnsignedBigInt
-  nombre       String     @unique(map: "uk_categoria_nombre") @db.VarChar(120)
-  descripcion  String?    @db.VarChar(255)
-  servicio     servicio[]
-}
-
-model cliente_profile {
-  id_user   BigInt      @id @db.UnsignedBigInt
-  cuit      String?     @db.VarChar(20)
-  campo     campo[]
-  users     users       @relation(fields: [id_user], references: [id_user], onDelete: Cascade, map: "fk_cliente_user")
-  solicitud solicitud[]
-}
-
-model insumo {
-  id_insumo        BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
-  nombre           String             @unique(map: "uk_insumo_nombre") @db.VarChar(120)
-  descripcion      String?            @db.VarChar(255)
-  solicitud_insumo solicitud_insumo[]
+model provincia {
+  id_provincia BigInt      @id @default(autoincrement()) @db.UnsignedBigInt
+  nombre       String      @unique(map: "uk_provincia_nombre") @db.VarChar(120)
+  localidad    localidad[]
 }
 
 model localidad {
@@ -56,100 +24,40 @@ model localidad {
   codigo_postal String?   @db.VarChar(16)
   provincia     provincia @relation(fields: [id_provincia], references: [id_provincia], map: "fk_localidad_provincia")
   users         users[]
+  campo         campo[]
 
   @@unique([id_provincia, nombre], map: "uk_localidad_prov_nombre")
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-model precio {
-  id_precio   BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
-  id_servicio BigInt   @db.UnsignedBigInt
-  fecha_desde DateTime @db.Date
-  valor       Decimal  @db.Decimal(12, 2)
-  servicio    servicio @relation(fields: [id_servicio], references: [id_servicio], onDelete: Cascade, map: "fk_precio_serv")
-
-  @@unique([id_servicio, fecha_desde], map: "uk_precio_vigencia")
-  @@index([id_servicio, fecha_desde], map: "idx_precio_servicio")
-}
-
-model prestamista_profile {
-  id_user   BigInt      @id @db.UnsignedBigInt
-  cuit      String?     @db.VarChar(20)
-  users     users       @relation(fields: [id_user], references: [id_user], onDelete: Cascade, map: "fk_prestamista_user")
-  servicio  servicio[]
-  solicitud solicitud[]
-}
-
-model provincia {
-  id_provincia BigInt      @id @default(autoincrement()) @db.UnsignedBigInt
-  nombre       String      @unique(map: "uk_provincia_nombre") @db.VarChar(120)
-  localidad    localidad[]
-}
+// ─────────────────────────────────────────────────────────────
+// Usuarios y roles
+// ─────────────────────────────────────────────────────────────
 
 model roles {
   id_role    Int          @id @db.UnsignedTinyInt
-  name       String       @unique(map: "name") @db.VarChar(32)
+  name       String       @unique(map: "uk_role_name") @db.VarChar(32)
   user_roles user_roles[]
 }
 
-model servicio {
-  id_servicio         BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
-  nombre              String              @db.VarChar(120)
-  descripcion         String?             @db.VarChar(255)
-  id_categoria        BigInt              @db.UnsignedBigInt
-  id_prestamista      BigInt              @db.UnsignedBigInt
-  created_at          DateTime            @default(now()) @db.Timestamp(0)
-  updated_at          DateTime            @default(now()) @db.Timestamp(0)
-  precio              precio[]
-  categoria           categoria           @relation(fields: [id_categoria], references: [id_categoria], map: "fk_servicio_categoria")
-  prestamista_profile prestamista_profile @relation(fields: [id_prestamista], references: [id_user], map: "fk_servicio_prestamista")
-  solicitud           solicitud[]
+model users {
+  id_user             BigInt               @id @default(autoincrement()) @db.UnsignedBigInt
+  email               String               @unique(map: "uk_user_email") @db.VarChar(255)
+  password_hash       String               @db.VarChar(255)
+  nombre              String               @db.VarChar(100)
+  apellido            String               @db.VarChar(100)
+  cuil_cuit           String?              @unique(map: "uk_user_cuit") @db.VarChar(13)
+  telefono            String?              @db.VarChar(30)
+  fecha_nac           DateTime?            @db.Date
+  domicilio           String?              @db.VarChar(255)
+  id_localidad        BigInt?              @db.UnsignedBigInt
+  created_at          DateTime             @default(now()) @db.Timestamp(0)
+  updated_at          DateTime             @default(now()) @updatedAt @db.Timestamp(0)
+  localidad           localidad?           @relation(fields: [id_localidad], references: [id_localidad], onDelete: SetNull, map: "fk_user_localidad")
+  user_roles          user_roles[]
+  productor_profile   productor_profile?
+  contratista_profile contratista_profile?
 
-  @@index([id_categoria], map: "idx_servicio_cat")
-  @@index([id_prestamista], map: "idx_servicio_owner")
-}
-
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-model solicitud {
-  id_solicitud         BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
-  id_servicio          BigInt              @db.UnsignedBigInt
-  id_cliente           BigInt              @db.UnsignedBigInt
-  id_prestamista       BigInt              @db.UnsignedBigInt
-  id_campo             BigInt              @db.UnsignedBigInt
-  estado               solicitud_estado    @default(pendiente)
-  fecha_solicitud      DateTime            @default(now()) @db.DateTime(0)
-  fecha_inicio         DateTime?           @db.DateTime(0)
-  fecha_fin            DateTime?           @db.DateTime(0)
-  hectareas_trabajadas Decimal             @db.Decimal(10, 2)
-  precio_servicio      Decimal             @default(0.00) @db.Decimal(14, 2)
-  costo_insumos        Decimal             @default(0.00) @db.Decimal(14, 2)
-  precio_total         Decimal             @default(0.00) @db.Decimal(14, 2)
-  campo                campo               @relation(fields: [id_campo], references: [id_campo], map: "fk_sol_campo")
-  cliente_profile      cliente_profile     @relation(fields: [id_cliente], references: [id_user], map: "fk_sol_cliente")
-  prestamista_profile  prestamista_profile @relation(fields: [id_prestamista], references: [id_user], map: "fk_sol_prestamista")
-  servicio             servicio            @relation(fields: [id_servicio], references: [id_servicio], map: "fk_sol_servicio")
-  solicitud_insumo     solicitud_insumo[]
-
-  @@index([id_campo], map: "fk_sol_campo")
-  @@index([id_servicio], map: "fk_sol_servicio")
-  @@index([id_cliente, estado], map: "idx_sol_cliente")
-  @@index([estado], map: "idx_sol_estado")
-  @@index([id_prestamista, estado], map: "idx_sol_prestamista")
-}
-
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-model solicitud_insumo {
-  id_solicitud_insumo BigInt                     @id @default(autoincrement()) @db.UnsignedBigInt
-  id_solicitud        BigInt                     @db.UnsignedBigInt
-  id_insumo           BigInt                     @db.UnsignedBigInt
-  cantidad            Decimal                    @db.Decimal(10, 2)
-  precio_unit         Decimal                    @db.Decimal(12, 2)
-  proveedor           solicitud_insumo_proveedor
-  insumo              insumo                     @relation(fields: [id_insumo], references: [id_insumo], map: "fk_si_insumo")
-  solicitud           solicitud                  @relation(fields: [id_solicitud], references: [id_solicitud], onDelete: Cascade, map: "fk_si_solicitud")
-
-  @@index([id_insumo], map: "fk_si_insumo")
-  @@index([id_solicitud], map: "fk_si_solicitud")
+  @@index([id_localidad], map: "idx_user_localidad")
 }
 
 model user_roles {
@@ -159,38 +67,172 @@ model user_roles {
   users   users  @relation(fields: [id_user], references: [id_user], onDelete: Cascade, map: "fk_ur_user")
 
   @@id([id_user, id_role])
-  @@index([id_role], map: "fk_ur_role")
+  @@index([id_role], map: "idx_ur_role")
 }
 
-model users {
-  id_user             BigInt               @id @default(autoincrement()) @db.UnsignedBigInt
-  email               String               @unique(map: "email") @db.VarChar(255)
-  password_hash       String               @db.VarChar(255)
-  nombre              String               @db.VarChar(100)
-  apellido            String               @db.VarChar(100)
-  cuil_cuit           String?              @db.VarChar(20)
-  fecha_nac           DateTime?            @db.Date
-  domicilio           String?              @db.VarChar(255)
-  id_localidad        BigInt?              @db.UnsignedBigInt
-  created_at          DateTime             @default(now()) @db.Timestamp(0)
-  updated_at          DateTime             @default(now()) @db.Timestamp(0)
-  admin_profile       admin_profile?
-  cliente_profile     cliente_profile?
-  prestamista_profile prestamista_profile?
-  user_roles          user_roles[]
-  localidad           localidad?           @relation(fields: [id_localidad], references: [id_localidad], map: "fk_user_localidad")
-
-  @@index([id_localidad], map: "idx_user_localidad")
+/// Subtipo Productor: dueño de campos, solicita servicios.
+model productor_profile {
+  id_user      BigInt      @id @db.UnsignedBigInt
+  razon_social String?     @db.VarChar(150)
+  users        users       @relation(fields: [id_user], references: [id_user], onDelete: Cascade, map: "fk_productor_user")
+  campo        campo[]
+  solicitud    solicitud[]
 }
 
-enum solicitud_insumo_proveedor {
-  CLIENTE
-  PRESTAMISTA
+/// Subtipo Contratista: publica servicios y ejecuta los trabajos.
+model contratista_profile {
+  id_user           BigInt      @id @db.UnsignedBigInt
+  descripcion       String?     @db.VarChar(600)
+  anios_experiencia Int?        @db.UnsignedSmallInt
+  users             users       @relation(fields: [id_user], references: [id_user], onDelete: Cascade, map: "fk_contratista_user")
+  servicio          servicio[]
+  solicitud         solicitud[]
+}
+
+// ─────────────────────────────────────────────────────────────
+// Catálogos
+// ─────────────────────────────────────────────────────────────
+
+model categoria {
+  id_categoria BigInt     @id @default(autoincrement()) @db.UnsignedBigInt
+  nombre       String     @unique(map: "uk_categoria_nombre") @db.VarChar(120)
+  descripcion  String?    @db.VarChar(255)
+  servicio     servicio[]
+}
+
+/// Insumo con precio de referencia (lo fija ADMIN); se snapshotea en cada solicitud.
+model insumo {
+  id_insumo         BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
+  nombre            String             @unique(map: "uk_insumo_nombre") @db.VarChar(120)
+  descripcion       String?            @db.VarChar(255)
+  unidad            String             @default("unidad") @db.VarChar(20)
+  precio_referencia Decimal            @default(0.00) @db.Decimal(12, 2)
+  solicitud_insumo  solicitud_insumo[]
+}
+
+// ─────────────────────────────────────────────────────────────
+// Oferta: servicios y precios
+// ─────────────────────────────────────────────────────────────
+
+model servicio {
+  id_servicio         BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  nombre              String              @db.VarChar(120)
+  descripcion         String?             @db.VarChar(500)
+  id_categoria        BigInt              @db.UnsignedBigInt
+  id_contratista      BigInt              @db.UnsignedBigInt
+  activo              Boolean             @default(true)
+  created_at          DateTime            @default(now()) @db.Timestamp(0)
+  updated_at          DateTime            @default(now()) @updatedAt @db.Timestamp(0)
+  categoria           categoria           @relation(fields: [id_categoria], references: [id_categoria], map: "fk_servicio_categoria")
+  contratista_profile contratista_profile @relation(fields: [id_contratista], references: [id_user], map: "fk_servicio_contratista")
+  precio              precio[]
+  solicitud           solicitud[]
+
+  @@index([id_categoria], map: "idx_servicio_cat")
+  @@index([id_contratista], map: "idx_servicio_owner")
+  @@index([activo], map: "idx_servicio_activo")
+}
+
+/// Historial de precios por hectárea. Vigente = mayor fecha_desde <= hoy.
+model precio {
+  id_precio   BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  id_servicio BigInt   @db.UnsignedBigInt
+  fecha_desde DateTime @db.Date
+  valor       Decimal  @db.Decimal(12, 2)
+  servicio    servicio @relation(fields: [id_servicio], references: [id_servicio], onDelete: Cascade, map: "fk_precio_serv")
+
+  @@unique([id_servicio, fecha_desde], map: "uk_precio_vigencia")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Demanda: campos y solicitudes
+// ─────────────────────────────────────────────────────────────
+
+model campo {
+  id_campo          BigInt            @id @default(autoincrement()) @db.UnsignedBigInt
+  id_productor      BigInt            @db.UnsignedBigInt
+  id_localidad      BigInt            @db.UnsignedBigInt
+  nombre            String            @db.VarChar(100)
+  hectareas         Decimal           @db.Decimal(10, 2)
+  latitud           Decimal?          @db.Decimal(9, 6)
+  longitud          Decimal?          @db.Decimal(9, 6)
+  created_at        DateTime          @default(now()) @db.Timestamp(0)
+  productor_profile productor_profile @relation(fields: [id_productor], references: [id_user], map: "fk_campo_productor")
+  localidad         localidad         @relation(fields: [id_localidad], references: [id_localidad], map: "fk_campo_localidad")
+  solicitud         solicitud[]
+
+  @@index([id_productor], map: "idx_campo_productor")
+  @@index([id_localidad], map: "idx_campo_localidad")
 }
 
 enum solicitud_estado {
   pendiente
   aceptada
   rechazada
+  cancelada
   completada
+}
+
+enum insumo_proveedor {
+  PRODUCTOR
+  CONTRATISTA
+}
+
+model solicitud {
+  id_solicitud         BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  id_servicio          BigInt              @db.UnsignedBigInt
+  id_productor         BigInt              @db.UnsignedBigInt
+  /// Snapshot del dueño del servicio al momento de solicitar.
+  id_contratista       BigInt              @db.UnsignedBigInt
+  id_campo             BigInt              @db.UnsignedBigInt
+  estado               solicitud_estado    @default(pendiente)
+  fecha_solicitud      DateTime            @default(now()) @db.DateTime(0)
+  fecha_inicio         DateTime?           @db.Date
+  fecha_fin            DateTime?           @db.Date
+  hectareas_trabajadas Decimal             @db.Decimal(10, 2)
+  /// Snapshot: precio vigente por hectárea al solicitar.
+  precio_hectarea      Decimal             @db.Decimal(12, 2)
+  precio_servicio      Decimal             @db.Decimal(14, 2)
+  costo_insumos        Decimal             @default(0.00) @db.Decimal(14, 2)
+  precio_total         Decimal             @db.Decimal(14, 2)
+  observaciones        String?             @db.VarChar(500)
+  /// Motivo de rechazo o cancelación.
+  motivo               String?             @db.VarChar(500)
+  updated_at           DateTime            @default(now()) @updatedAt @db.Timestamp(0)
+  campo                campo               @relation(fields: [id_campo], references: [id_campo], map: "fk_sol_campo")
+  productor_profile    productor_profile   @relation(fields: [id_productor], references: [id_user], map: "fk_sol_productor")
+  contratista_profile  contratista_profile @relation(fields: [id_contratista], references: [id_user], map: "fk_sol_contratista")
+  servicio             servicio            @relation(fields: [id_servicio], references: [id_servicio], map: "fk_sol_servicio")
+  solicitud_insumo     solicitud_insumo[]
+  valoracion           valoracion?
+
+  @@index([id_campo], map: "idx_sol_campo")
+  @@index([id_servicio], map: "idx_sol_servicio")
+  @@index([id_productor, estado], map: "idx_sol_productor")
+  @@index([id_contratista, estado], map: "idx_sol_contratista")
+}
+
+model solicitud_insumo {
+  id_solicitud_insumo BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
+  id_solicitud        BigInt           @db.UnsignedBigInt
+  id_insumo           BigInt           @db.UnsignedBigInt
+  cantidad            Decimal          @db.Decimal(10, 2)
+  /// Snapshot del precio de referencia; 0 si lo provee el productor.
+  precio_unit         Decimal          @db.Decimal(12, 2)
+  proveedor           insumo_proveedor
+  insumo              insumo           @relation(fields: [id_insumo], references: [id_insumo], map: "fk_si_insumo")
+  solicitud           solicitud        @relation(fields: [id_solicitud], references: [id_solicitud], onDelete: Cascade, map: "fk_si_solicitud")
+
+  @@unique([id_solicitud, id_insumo], map: "uk_si_solicitud_insumo")
+  @@index([id_insumo], map: "idx_si_insumo")
+}
+
+/// Valoración del productor sobre una solicitud completada (una por solicitud).
+model valoracion {
+  id_valoracion BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  id_solicitud  BigInt    @unique(map: "uk_valoracion_solicitud") @db.UnsignedBigInt
+  puntaje       Int       @db.UnsignedTinyInt
+  comentario    String?   @db.VarChar(500)
+  fecha         DateTime  @default(now()) @db.DateTime(0)
+  solicitud     solicitud @relation(fields: [id_solicitud], references: [id_solicitud], onDelete: Cascade, map: "fk_val_solicitud")
 }
