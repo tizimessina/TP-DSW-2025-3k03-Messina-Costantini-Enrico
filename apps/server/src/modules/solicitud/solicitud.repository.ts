@@ -1,6 +1,7 @@
 import { prisma, type Prisma } from '@repo/db';
 import { contactUserSelect, publicUserSelect } from '../../core/db/selects.js';
 import type { EventoNuevo } from '../../core/events/eventos.js';
+import type { NotificacionNueva } from '../../core/notify/notificaciones.js';
 import type { SolicitudEstado } from './solicitud.schema.js';
 
 /** Listado: contrapartes sin datos de contacto. */
@@ -52,8 +53,8 @@ export const solicitudRepo = {
 
   getById: (id: bigint) => prisma.solicitud.findUnique({ where: { id_solicitud: id }, include: detailInclude }),
 
-  /** El evento de alta se escribe anidado, así nace en la misma transacción. */
-  create: (data: SolicitudCreateData, evento: EventoNuevo) => {
+  /** Evento y avisos se escriben anidados, así nacen en la misma transacción. */
+  create: (data: SolicitudCreateData, evento: EventoNuevo, notificaciones: NotificacionNueva[]) => {
     const { insumos, ...rest } = data;
     return prisma.solicitud.create({
       data: {
@@ -61,22 +62,28 @@ export const solicitudRepo = {
         estado: 'pendiente',
         solicitud_insumo: { create: insumos },
         solicitud_evento: { create: [evento] },
+        notificacion: { create: notificaciones },
       },
       include: detailInclude,
     });
   },
 
   /**
-   * Cambio de estado e historial en una sola transacción: si falla el evento, el
-   * estado tampoco cambia, así no puede existir una transición sin registro.
+   * Cambio de estado, historial y avisos en una sola transacción: si falla
+   * cualquiera de los tres, el estado tampoco cambia. Así no puede existir una
+   * transición sin registro ni sin aviso.
    */
   updateEstado: (
     id: bigint,
     data: { estado: SolicitudEstado; fecha_inicio?: Date | null; fecha_fin?: Date | null; motivo?: string | null },
     evento: EventoNuevo,
+    notificaciones: NotificacionNueva[],
   ) =>
     prisma.$transaction(async (tx) => {
       await tx.solicitud_evento.create({ data: { ...evento, id_solicitud: id } });
+      if (notificaciones.length > 0) {
+        await tx.notificacion.createMany({ data: notificaciones.map((n) => ({ ...n, id_solicitud: id })) });
+      }
       return tx.solicitud.update({ where: { id_solicitud: id }, data, include: detailInclude });
     }),
 

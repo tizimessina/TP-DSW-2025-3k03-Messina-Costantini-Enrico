@@ -10,6 +10,7 @@ import localidadRouter from '../../modules/localidad/localidad.router.js';
 import usuarioRouter from '../../modules/usuario/usuario.router.js';
 import authRouter from '../../modules/auth/auth.router.js';
 import contratistaRouter from '../../modules/contratista/contratista.router.js';
+import notificacionRouter from '../../modules/notificacion/notificacion.router.js';
 import { categoriaServicioRouter } from '../../modules/categoria-servicio/categoria-servicio.router.js';
 import { insumoRouter } from '../../modules/insumo/insumo.router.js';
 import { servicioRouter } from '../../modules/servicio/servicio.router.js';
@@ -65,6 +66,7 @@ export function createApp() {
   app.use('/campos', campoRouter);
   app.use('/solicitudes', solicitudRouter);
   app.use('/valoraciones', valoracionRouter);
+  app.use('/notificaciones', notificacionRouter);
 
   // 404 en JSON para cualquier ruta desconocida
   app.use((req, res) => res.status(404).json({ code: 'NOT_FOUND', message: `Ruta no encontrada: ${req.method} ${req.path}` }));

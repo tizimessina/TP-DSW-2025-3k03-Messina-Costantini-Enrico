@@ -1,6 +1,7 @@
 import { prisma, type Prisma } from "@repo/db";
 import { publicUserSelect } from "../../core/db/selects.js";
 import type { EventoNuevo } from "../../core/events/eventos.js";
+import type { NotificacionNueva } from "../../core/notify/notificaciones.js";
 
 const include = {
   solicitud: {
@@ -26,11 +27,18 @@ export const valoracionRepo = {
   listByContratista: (id_contratista: bigint) => listWhere({ solicitud: { id_contratista } }),
   listByServicio: (id_servicio: bigint) => listWhere({ solicitud: { id_servicio } }),
   getBySolicitud: (id_solicitud: bigint) => prisma.valoracion.findUnique({ where: { id_solicitud } }),
-  /** La valoración y su entrada en el historial se escriben juntas. */
-  create: (data: { id_solicitud: bigint; puntaje: number; comentario: string | null }, evento: EventoNuevo) =>
+  /** La valoración, su entrada en el historial y el aviso se escriben juntos. */
+  create: (
+    data: { id_solicitud: bigint; puntaje: number; comentario: string | null },
+    evento: EventoNuevo,
+    notificaciones: NotificacionNueva[],
+  ) =>
     prisma.$transaction(async (tx) => {
       const row = await tx.valoracion.create({ data, include });
       await tx.solicitud_evento.create({ data: { ...evento, id_solicitud: data.id_solicitud } });
+      if (notificaciones.length > 0) {
+        await tx.notificacion.createMany({ data: notificaciones.map((n) => ({ ...n, id_solicitud: data.id_solicitud })) });
+      }
       return row;
     }),
 };

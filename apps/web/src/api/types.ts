@@ -200,6 +200,16 @@ export interface Solicitud extends Omit<SolicitudResumen, "productor_profile" | 
   valoracion?: Valoracion | null;
 }
 
+/** Aviso dentro de la aplicación. `leida_at` en null = pendiente de leer. */
+export interface Notificacion {
+  id_notificacion: number;
+  id_solicitud: number | null;
+  titulo: string;
+  cuerpo: string;
+  leida_at: string | null;
+  created_at: string;
+}
+
 export interface Valoracion {
   id_valoracion: number;
   id_solicitud: number;

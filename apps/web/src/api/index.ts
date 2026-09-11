@@ -3,7 +3,7 @@
  */
 import { api } from "./base";
 import type {
-  Campo, Categoria, Contratista, Insumo, Localidad, Page, Precio, Provincia, Resumen, RoleName,
+  Campo, Categoria, Contratista, Insumo, Localidad, Notificacion, Page, Precio, Provincia, Resumen, RoleName,
   Servicio, Solicitud, SolicitudEstado, SolicitudResumen, Usuario, Valoracion, InsumoProveedor,
 } from "./types";
 
@@ -123,6 +123,15 @@ export const solicitudes = {
 };
 
 /* ---------- Valoraciones ---------- */
+export const notificaciones = {
+  /** El listado ya trae `no_leidas`, así el badge se actualiza con la misma request. */
+  list: async (params?: { page?: number; pageSize?: number; no_leidas?: boolean }) =>
+    (await api.get<Page<Notificacion> & { no_leidas: number }>("/notificaciones", { params })).data,
+  noLeidas: async () => (await api.get<{ no_leidas: number }>("/notificaciones/no-leidas")).data,
+  leer: async (id: number) => (await api.post<{ ok: true; no_leidas: number }>(`/notificaciones/${id}/leer`)).data,
+  leerTodas: async () => (await api.post<{ ok: true; marcadas: number; no_leidas: number }>("/notificaciones/leer-todas")).data,
+};
+
 export const valoraciones = {
   list: async (params: { id_contratista?: number; id_servicio?: number }) => (await api.get<{ items: Valoracion[]; promedio: number | null; cantidad: number }>("/valoraciones", { params })).data,
   create: async (data: { id_solicitud: number; puntaje: number; comentario?: string | null }) => (await api.post<Valoracion>("/valoraciones", data)).data,

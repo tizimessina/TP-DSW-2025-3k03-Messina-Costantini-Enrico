@@ -1,7 +1,8 @@
 import type { Prisma } from "@repo/db";
 import { hasRole, isAdmin } from "../../core/auth/middleware.js";
 import type { AuthUser } from "../../core/auth/types.js";
-import { actorDe, type EventoActor, type EventoNuevo } from "../../core/events/eventos.js";
+import { actorDe, nombreActor, type EventoActor, type EventoNuevo } from "../../core/events/eventos.js";
+import { recortar, type NotificacionNueva } from "../../core/notify/notificaciones.js";
 import { badRequest, conflict, forbidden, notFound } from "../../core/errors/errors.js";
 import { toPage, toSkipTake } from "../../core/http/pagination.js";
 import { toCivil, todayCivil } from "../../core/util/dates.js";
@@ -75,6 +76,53 @@ export function buildEventoTransicion(
     detalle: motivo ?? null,
     ...actorDe(user, rol),
   };
+}
+
+/** Datos de la solicitud que necesitan los textos de los avisos. */
+type ContextoAviso = {
+  id_productor: bigint;
+  id_contratista: bigint;
+  servicio: string;
+  campo: string;
+};
+
+/** Aviso al contratista cuando le entra una solicitud nueva. */
+export function buildNotificacionAlta(actor: string, ctx: ContextoAviso, hectareas: number): NotificacionNueva[] {
+  return [
+    {
+      id_user: ctx.id_contratista,
+      titulo: "Nueva solicitud recibida",
+      cuerpo: recortar(`${actor} te pidió ${ctx.servicio} para ${hectareas} ha en ${ctx.campo}.`),
+    },
+  ];
+}
+
+/**
+ * A quién avisar en cada cambio de estado. La regla es simple: se avisa siempre a
+ * la contraparte, nunca a quien hizo el cambio. Si interviene un administrador,
+ * se avisa a las dos partes.
+ */
+export function buildNotificacionesTransicion(
+  rol: EventoActor,
+  hacia: SolicitudEstado,
+  actor: string,
+  ctx: ContextoAviso,
+  motivo?: string | null,
+): NotificacionNueva[] {
+  const razon = motivo ? ` Motivo: ${motivo}` : "";
+  const textos: Partial<Record<SolicitudEstado, { titulo: string; cuerpo: string }>> = {
+    aceptada: { titulo: "Solicitud aceptada", cuerpo: `${actor} aceptó ${ctx.servicio} en ${ctx.campo}.` },
+    rechazada: { titulo: "Solicitud rechazada", cuerpo: `${actor} rechazó ${ctx.servicio} en ${ctx.campo}.${razon}` },
+    completada: { titulo: "Trabajo completado", cuerpo: `${actor} completó ${ctx.servicio} en ${ctx.campo}. Ya podés valorarlo.` },
+    cancelada: { titulo: "Solicitud cancelada", cuerpo: `${actor} canceló ${ctx.servicio} en ${ctx.campo}.${razon}` },
+  };
+  const texto = textos[hacia];
+  if (!texto) return [];
+
+  const destinatarios =
+    rol === "ADMIN" ? [ctx.id_productor, ctx.id_contratista] : rol === "PRODUCTOR" ? [ctx.id_contratista] : [ctx.id_productor];
+
+  return destinatarios.map((id_user) => ({ id_user, titulo: texto.titulo, cuerpo: recortar(texto.cuerpo) }));
 }
 
 function rolEn(user: AuthUser, s: { id_productor: bigint; id_contratista: bigint }): "PRODUCTOR" | "CONTRATISTA" | "ADMIN" | null {
@@ -155,6 +203,12 @@ export const solicitudService = {
       insumos: lineas.map((l) => ({ id_insumo: l.id_insumo, cantidad: l.cantidad, precio_unit: l.precio_unit, proveedor: l.proveedor })),
       },
       buildEventoAlta(user),
+      buildNotificacionAlta(nombreActor(user), {
+        id_productor: user.id_user,
+        id_contratista: servicio.id_contratista,
+        servicio: servicio.nombre,
+        campo: campo.nombre,
+      }, data.hectareas_trabajadas),
     );
   },
 
@@ -183,7 +237,18 @@ export const solicitudService = {
     const fin = patch.fecha_fin ?? s.fecha_fin;
     if (inicio && fin && fin < inicio) throw badRequest("FECHAS_INVALIDAS", "La fecha de fin es anterior a la de inicio");
 
-    return solicitudRepo.updateEstado(id, patch, buildEventoTransicion(user, rol, s.estado, data.estado, patch.motivo));
+    const ctx = {
+      id_productor: s.id_productor,
+      id_contratista: s.id_contratista,
+      servicio: s.servicio?.nombre ?? "el servicio",
+      campo: s.campo?.nombre ?? "tu campo",
+    };
+    return solicitudRepo.updateEstado(
+      id,
+      patch,
+      buildEventoTransicion(user, rol, s.estado, data.estado, patch.motivo),
+      buildNotificacionesTransicion(rol, data.estado, nombreActor(user), ctx, patch.motivo),
+    );
   },
 
   /** Borrado físico solo para ADMIN (el productor cancela, no borra). */
