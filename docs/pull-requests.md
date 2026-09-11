@@ -17,6 +17,13 @@ Repositorio (monorepo fullstack): https://github.com/JereC4/TP-DSW-2025-3k03-Mes
 | [#11](https://github.com/JereC4/TP-DSW-2025-3k03-Messina-Costantini-Enrico/pull/11) | `refactor/dominio` | Modelo productor/contratista, migración única con CHECKs, reglas de negocio coherentes, valoraciones, paginación, 54 tests | Tiziano |
 | [#12](https://github.com/JereC4/TP-DSW-2025-3k03-Messina-Costantini-Enrico/pull/12) | `feat/ui-v2` | UI nueva: design system, dashboard por rol, wizard de solicitud, mapas, admin, e2e | Tiziano |
 | [#13](https://github.com/JereC4/TP-DSW-2025-3k03-Messina-Costantini-Enrico/pull/13) | `docs/coherencia` | Modelo en Mermaid, glosario, limitaciones, proposal, evidencia, guion | Tiziano |
+| pendiente | `fix/responsive-movil` | Grillas que desbordaban la pantalla en teléfonos | Tiziano |
+| pendiente | `fix/ci-pnpm` | Versión de pnpm duplicada en la integración continua | Tiziano |
+| pendiente | `chore/lint-auditoria` | Lint del backend, modo estricto completo y documento de auditoría | Tiziano |
+| pendiente | `chore/docker-compose` | Todo el stack con un comando: base, migraciones, datos de demo, API y frontend | Tiziano |
+| pendiente | `feat/historial-eventos` | Registro de transiciones de la solicitud y línea de tiempo real | Tiziano |
+| pendiente | `feat/notificaciones` | Avisos dentro de la aplicación, con campana y contador | Tiziano |
+| pendiente | `feat/mejoras-demo` | Insignia de verificado, ficha histórica del campo, precio de mercado y gráfico del panel | Tiziano |
 | pendiente | `docs/gestion` | Minutas, tracking, GitHub Projects | Jeremías |
 
-Los números 11 a 13 se confirman al abrir cada PR. El desarrollo previo (octubre y noviembre de 2025) se hizo con commits directos a `main` de ambos integrantes; ver `git log`.
+Los números de los PR marcados como pendientes se completan al abrirlos. El orden de merge de los últimos es: `fix/responsive-movil`, `fix/ci-pnpm`, `chore/lint-auditoria`, `chore/docker-compose`, `feat/historial-eventos`, `feat/notificaciones` y `feat/mejoras-demo`, que van apilados en ese orden. El desarrollo previo (octubre y noviembre de 2025) se hizo con commits directos a `main` de ambos integrantes; ver `git log`.
