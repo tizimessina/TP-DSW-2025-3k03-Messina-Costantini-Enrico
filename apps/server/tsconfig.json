@@ -9,7 +9,7 @@
     "types": ["node"],
     "strict": true,
     "skipLibCheck": true,
-    "noImplicitAny": false
+    "noImplicitAny": true
   },
   "include": ["src"],
   "exclude": ["src/**/*.test.ts"]

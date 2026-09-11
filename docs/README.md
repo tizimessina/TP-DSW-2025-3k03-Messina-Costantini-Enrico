@@ -12,6 +12,7 @@ Punto de entrada de la documentación exigida por la cátedra. Todo en Markdown 
 |:-|:-|
 | Propuesta actualizada (tema, modelo, alcance) | [../proposal.md](../proposal.md) |
 | Modelo de dominio: glosario, DER (Mermaid), reglas y limitaciones | [modelo.md](modelo.md) |
+| Auditoría de coherencia del negocio: los 53 hallazgos y cómo se resolvieron | [auditoria.md](auditoria.md) |
 | Links a los PR | [pull-requests.md](pull-requests.md) |
 | Instrucciones de instalación y ejecución | [instalacion.md](instalacion.md) |
 | Minutas de reunión y avance | [minutas/](minutas/) |
