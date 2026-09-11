@@ -18,29 +18,31 @@ Regenerar la copia del repo: `pnpm --filter server docs:export`.
 
 ## Convenciones
 
-- Respuestas JSON. IDs numéricos. Los importes (`DECIMAL`) viajan como string para no perder precisión.
+- Respuestas JSON. IDs numéricos. Los importes (`DECIMAL`) viajan como string para no perder precisión. Las fechas civiles (`DATE`) viajan como ISO a medianoche UTC.
+- Listados grandes paginados (`/servicios`, `/solicitudes`, `/usuarios`, `/contratistas`): `?page&pageSize` → `{ items, total, page, pageSize, totalPages }`.
 - Errores siempre con la forma `{ "code": "...", "message": "...", "details": ... }`:
 
 | HTTP | code | Cuándo |
 |:-|:-|:-|
 | 400 | `VALIDATION_ERROR` | body/query/params inválidos (`details` lista `{ path, message }`) |
-| 400 | `FK_INVALID` | referencia a un registro inexistente |
-| 401 | `UNAUTHORIZED` / `TOKEN_INVALID` | sin token, token vencido o inválido |
+| 400 | `FK_INVALID`, `ROLES_EXCLUYENTES`, `HECTAREAS_EXCEDIDAS`, `FECHAS_INVALIDAS`, `PASSWORD_INCORRECTA` | regla de negocio violada en la entrada |
+| 401 | `UNAUTHORIZED` / `TOKEN_INVALID` | sin token, token vencido o inválido, usuario eliminado |
 | 401 | `INVALID_CREDENTIALS` | login incorrecto |
-| 429 | `TOO_MANY_REQUESTS` | más de 20 intentos de login/registro por IP en 15 minutos |
 | 403 | `FORBIDDEN` | sin el rol requerido o recurso de otro usuario |
-| 404 | `NOT_FOUND` / `NO_PRICE` | recurso inexistente / servicio sin precio vigente |
-| 409 | `DUPLICATE` / `INVALID_TRANSITION` / `IN_USE` / `NOT_PENDING` | conflicto de negocio |
+| 404 | `NOT_FOUND` | recurso inexistente (o servicio inactivo para quien no es su dueño) |
+| 409 | `DUPLICATE`, `IN_USE`, `INVALID_TRANSITION`, `LAST_ADMIN`, `LAST_PRICE`, `HECTAREAS_COMPROMETIDAS`, `NO_PRICE`, `NOT_COMPLETED`, `ALREADY_RATED` | conflicto con el estado actual |
+| 429 | `TOO_MANY_REQUESTS` | más de 20 intentos de login/registro por IP en 15 minutos (solo en producción) |
 
 ## Matriz de permisos
 
 | Recurso | Lectura | Escritura |
 |:-|:-|:-|
 | provincias, localidades, categorías, insumos | pública | ADMIN |
-| usuarios, clientes, admins | ADMIN | ADMIN |
-| prestamistas | pública (filtro por provincia/localidad) | ADMIN |
-| servicios | pública | PRESTAMISTA dueño o ADMIN |
-| precios | pública | PRESTAMISTA dueño del servicio o ADMIN |
-| campos | CLIENTE dueño o ADMIN | CLIENTE dueño o ADMIN |
-| solicitudes | cliente (propias), prestamista (recibidas), ADMIN (todas) | crear: CLIENTE · cambiar estado: PRESTAMISTA de la solicitud o ADMIN · cancelar: CLIENTE (pendiente) o ADMIN |
-| /auth/me | el propio usuario | el propio usuario (sin roles) |
+| usuarios | ADMIN | ADMIN (roles excluyentes productor/contratista; guard de último admin) |
+| contratistas | pública, sin datos de contacto (cercanía por campo, provincia/localidad, categoría) | el contratista edita su bio en `PUT /auth/me` |
+| servicios | pública (solo activos; el dueño ve los inactivos) | CONTRATISTA dueño o ADMIN; `DELETE` es baja lógica |
+| precios | pública | CONTRATISTA dueño del servicio o ADMIN; no se borra el único precio vigente |
+| campos | PRODUCTOR dueño, ADMIN, o contratista con una solicitud sobre el campo | PRODUCTOR dueño o ADMIN |
+| solicitudes | productor (propias), contratista (recibidas), ADMIN (todas); el detalle incluye el contacto de la contraparte | crear: PRODUCTOR · aceptar/rechazar/completar: CONTRATISTA de la solicitud · cancelar: PRODUCTOR (pendiente o aceptada) o CONTRATISTA (aceptada), con motivo · borrar: ADMIN |
+| valoraciones | pública (por contratista o por servicio, con promedio) | PRODUCTOR de una solicitud completada, una vez |
+| /auth/me, /auth/me/password, /auth/me/resumen | el propio usuario | el propio usuario (sin roles ni email; la contraseña exige la actual) |

@@ -43,7 +43,7 @@ Con el contenedor de arriba, `DATABASE_URL="mysql://agro-dsw:agro-dsw@localhost:
 
 ```bash
 pnpm db:migrate   # crea las tablas (prisma migrate dev)
-pnpm db:seed      # roles, provincias/localidades, categorías, insumos, usuarios demo, servicios y una solicitud
+pnpm db:seed      # roles, provincias/localidades, categorías, insumos con precio, usuarios demo, campos, servicios, solicitudes en todos los estados y valoraciones
 ```
 
 El seed es idempotente: se puede volver a correr sin duplicar datos.
@@ -68,8 +68,8 @@ Para correr solo una parte: `pnpm --filter server dev` o `pnpm --filter web dev`
 | Rol | Email | Contraseña |
 |:-|:-|:-|
 | ADMIN | admin@agroapp.dev | Admin123! |
-| CLIENTE | cliente@agroapp.dev | Cliente123! |
-| PRESTAMISTA | prestamista@agroapp.dev | Prestamista123! |
+| PRODUCTOR | productor@agroapp.dev | Productor123! |
+| CONTRATISTA | contratista@agroapp.dev | Contratista123! |
 
 ## 7. Tests
 

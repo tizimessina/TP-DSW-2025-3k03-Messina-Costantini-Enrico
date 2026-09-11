@@ -37,12 +37,13 @@ export function createApp() {
   app.use(express.json({ limit: '100kb' }));
   if (env.NODE_ENV !== 'test') app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
+  // Rate limiting solo en producción (en dev/test, los e2e y las pruebas manuales superan el límite enseguida)
   const limiterMessage = { code: 'TOO_MANY_REQUESTS', message: 'Demasiadas solicitudes, probá de nuevo más tarde' };
-  const isTest = env.NODE_ENV === 'test';
-  app.use(rateLimit({ windowMs: 15 * 60 * 1000, limit: isTest ? 100000 : 600, standardHeaders: 'draft-7', legacyHeaders: false, message: limiterMessage }));
+  const isProd = env.NODE_ENV === 'production';
+  app.use(rateLimit({ windowMs: 15 * 60 * 1000, limit: isProd ? 600 : 100000, standardHeaders: 'draft-7', legacyHeaders: false, message: limiterMessage }));
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    limit: isTest ? 100000 : 20,
+    limit: isProd ? 20 : 100000,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
     message: { code: 'TOO_MANY_REQUESTS', message: 'Demasiados intentos, probá de nuevo en 15 minutos' },

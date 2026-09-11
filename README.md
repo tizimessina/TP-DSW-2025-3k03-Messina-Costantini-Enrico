@@ -1,6 +1,6 @@
 # AgroApp — TP DSW 2025 (3k03)
 
-Plataforma que conecta **productores agropecuarios (clientes)** con **contratistas rurales (prestamistas)**: los prestamistas publican servicios (siembra, cosecha, fumigación…) con precio por hectárea; los clientes registran sus campos y solicitan servicios; el prestamista acepta, rechaza o completa cada solicitud.
+Plataforma que conecta **productores** agropecuarios con **contratistas** rurales: los contratistas publican servicios (siembra, cosecha, pulverización…) con precio por hectárea; los productores registran sus campos, buscan contratistas cercanos y solicitan servicios; el contratista acepta, rechaza o completa cada solicitud y el productor valora el trabajo.
 
 ## Grupo
 * 53112 - Costantini, Jeremías
@@ -8,12 +8,12 @@ Plataforma que conecta **productores agropecuarios (clientes)** con **contratist
 
 ## Links
 * [Propuesta del TP](proposal.md)
-* [Documentación de entrega](docs/README.md) — instalación, minutas, tracking, API, tests, deploy
+* [Documentación de entrega](docs/README.md) — modelo, instalación, API, tests, deploy, minutas
 * App: https://agroapp.dev · API: https://api.agroapp.dev · Swagger: https://api.agroapp.dev/docs
 * Guía detallada de instalación: [docs/instalacion.md](docs/instalacion.md)
 
 ## Stack
-Monorepo **pnpm + Turborepo**. Backend **Node + Express 5 + TypeScript + Prisma + MySQL** (`apps/server`). Frontend **React 18 + Vite + Tailwind** (`apps/web`). Schema y migraciones en `packages/database`.
+Monorepo **pnpm + Turborepo**. Backend **Node + Express 5 + TypeScript + Prisma + MySQL** (`apps/server`). Frontend **React 18 + Vite + Tailwind + Framer Motion** (`apps/web`). Schema y migraciones en `packages/database`.
 
 ## Instalación y ejecución local
 
@@ -42,7 +42,7 @@ cp apps/web/.env.example apps/web/.env
 ```bash
 pnpm install
 pnpm db:migrate     # crea las tablas
-pnpm db:seed        # roles, provincias, categorías, insumos y usuarios demo
+pnpm db:seed        # roles, provincias, categorías, insumos, usuarios demo, campos, servicios, solicitudes y valoraciones
 ```
 
 ### 4. Levantar
@@ -52,15 +52,18 @@ pnpm dev            # backend en http://localhost:3000, frontend en http://local
 
 ### 5. Tests
 ```bash
-pnpm test
+pnpm test                      # backend (unitarios + integración) y frontend (componentes)
+pnpm --filter web test:e2e     # Playwright (la primera vez: pnpm --filter web exec playwright install chromium)
 ```
 
 ## Usuarios demo (creados por el seed)
 | Rol | Email | Contraseña |
 |:-|:-|:-|
 | ADMIN | admin@agroapp.dev | Admin123! |
-| CLIENTE | cliente@agroapp.dev | Cliente123! |
-| PRESTAMISTA | prestamista@agroapp.dev | Prestamista123! |
+| PRODUCTOR | productor@agroapp.dev | Productor123! |
+| CONTRATISTA | contratista@agroapp.dev | Contratista123! |
+
+Más usuarios en [docs/deploy.md](docs/deploy.md).
 
 ## Scripts útiles
 | Comando | Qué hace |
@@ -71,3 +74,4 @@ pnpm test
 | `pnpm db:migrate` | `prisma migrate dev` (desarrollo) |
 | `pnpm db:deploy` | `prisma migrate deploy` (producción) |
 | `pnpm db:seed` | carga datos iniciales (idempotente) |
+| `pnpm --filter server docs:export` | regenera `docs/api/openapi.json` |

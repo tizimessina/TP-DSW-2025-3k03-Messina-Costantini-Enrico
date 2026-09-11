@@ -1,83 +1,60 @@
 # AgroApp — guía para Claude Code
 
 TP de Desarrollo de Software (UTN FRRo, 3k03, 2025). Grupo: Tiziano Messina (52911) y Jeremías Costantini (53112).
-Conecta **clientes** (productores agropecuarios) con **prestamistas** (contratistas rurales): el prestamista publica servicios con precio por hectárea; el cliente registra campos y solicita servicios; el prestamista acepta/rechaza/completa la solicitud.
+Conecta **productores** (dueños de campos) con **contratistas** rurales: el contratista publica servicios con precio por hectárea; el productor registra campos y solicita servicios con insumos; el contratista acepta/rechaza/completa; el productor valora.
 
-Los requisitos de la cátedra están en `../docs-for-agroapp/` (README.md, FAQ.md, docs.md, proposal.md, MODELODEDATOS.png). Instancia objetivo: **Aprobación en Examen**. Toda decisión se toma en función de esa checklist.
+Los requisitos de la cátedra están en `../docs-for-agroapp/`. Instancia objetivo: **Aprobación en Examen**. El modelo de dominio, el glosario, las reglas y las limitaciones están en `docs/modelo.md`: leerlo antes de tocar lógica de negocio.
 
 ## Stack
 
 - Monorepo **pnpm 8 + Turborepo 2**. Workspaces: `apps/*`, `packages/*`.
-- `apps/server`: Node + **Express 5** + TypeScript (ESM, `NodeNext`), validación **Zod 4**, `morgan`, `cors`, `bcrypt`. Puerto 3000.
-- `apps/web`: **React 18 + Vite 5 + Tailwind 3** + `react-router-dom` 7 + `axios`. Tests con Vitest + Testing Library.
-- `packages/database` (`@repo/db`): **Prisma 6** + **MySQL**. Exporta `prisma` (singleton) y los tipos del cliente.
-- `packages/typescript-config`, `packages/eslint-config`: configs compartidas.
+- `apps/server`: Node + **Express 5** + TypeScript (ESM, `NodeNext`), **Zod 4**, `helmet`, `express-rate-limit`, `morgan`, `cors`, `bcrypt`, `jsonwebtoken`. Puerto 3000.
+- `apps/web`: **React 18 + Vite 5 + Tailwind 3** (tema claro/oscuro, tokens `brand`/`sand`/`harvest`), `react-router-dom` 7, `axios`, **Framer Motion**, **Headless UI**, `lucide-react`, `react-leaflet` 4. Tests con Vitest + Testing Library; e2e con Playwright.
+- `packages/database` (`@repo/db`): **Prisma 6** + **MySQL**. Una sola migración `0001_init` (con CHECK constraints). Exporta `prisma` y los tipos.
 - Deploy: front en Vercel, back en Render, DB en Aiven MySQL, dominio `agroapp.dev`.
 
 ## Comandos
 
 ```bash
-pnpm install                 # instala todo el monorepo
-pnpm dev                     # server + web en paralelo (turbo)
-pnpm build                   # build de todos los paquetes
-pnpm test                    # tests de todos los paquetes
-pnpm --filter @repo/db db:migrate   # prisma migrate dev (local)
-pnpm --filter @repo/db db:deploy    # prisma migrate deploy (prod)
-pnpm --filter @repo/db db:seed      # carga roles, catálogos y usuarios demo
-pnpm --filter server dev     # solo backend (tsx watch)
-pnpm --filter web dev        # solo frontend
+pnpm install
+pnpm dev                     # server + web
+pnpm build
+pnpm test                    # server (unit + integración) y web (componentes)
+pnpm db:migrate              # prisma migrate dev (local)
+pnpm db:deploy               # prisma migrate deploy (prod)
+pnpm db:seed                 # roles, ubicación, catálogos, usuarios demo, campos, servicios, solicitudes, valoraciones
 pnpm --filter web test:e2e   # Playwright (levanta server y web solo)
-pnpm --filter server docs:export   # regenera docs/api/openapi.json desde los schemas Zod
+pnpm --filter server docs:export   # regenera docs/api/openapi.json
 ```
 
-Tests: `apps/server/test/setup.ts` carga `apps/server/.env` antes de que Prisma se conecte, así los tests de integración usan la DB local aunque `packages/database/.env` apunte a producción. Nunca correr tests ni el seed con `DATABASE_URL` de Aiven.
+DB local: contenedor Docker Percona en `localhost:3307`, base `agro-dsw`. `apps/server/.env` (gitignored) apunta a la local y tiene prioridad para el backend y los tests; `packages/database/.env` lo usa Prisma CLI. **Nunca** correr tests ni el seed con la URL de Aiven. Después de tocar `schema.prisma`: `pnpm --filter @repo/db build`.
 
-Docs de la API: cada ruta nueva se registra en `apps/server/src/core/docs/openapi.ts` (helper `crud()` o `route()`); Swagger UI en `/docs`.
+## Backend
 
-DB local: contenedor Docker Percona en `localhost:3307`, base `agro-dsw`, usuario `agro-dsw` (ver `packages/database/.env`).
-Importante: `@repo/db` se consume compilado (`dist/`), así que después de tocar `schema.prisma` hay que correr `pnpm --filter @repo/db build`.
+Cada módulo en `apps/server/src/modules/<nombre>/`: `schema.ts` (Zod + DTOs), `repository.ts` (único que toca `prisma`), `service.ts` (reglas; errores con los helpers de `core/errors/errors.ts`: `notFound`, `badRequest`, `conflict`, `forbidden`, `translatePrisma`), `controller.ts` (parsea con Zod, `next(err)`), `router.ts` (middlewares y rutas; se monta en `core/http/expressApp.ts`).
 
-## Estructura del backend
+Transversal en `src/core/`: `auth/` (JWT solo con `sub`; `requireAuth` revalida roles en DB; `requireRole`, `assertOwnerOrAdmin`, `optionalAuth`), `db/selects.ts` (`publicUserSelect` sin contacto, `contactUserSelect` para las partes de una solicitud), `http/pagination.ts` (`{ items, total, page, pageSize, totalPages }`), `util/dates.ts` (fechas civiles sin desfase UTC: `todayCivil`, `toCivil`), `docs/openapi.ts` (registrar toda ruta nueva con `route()` o `crud()`).
 
-Cada módulo vive en `apps/server/src/modules/<nombre>/` con exactamente estos archivos:
-
-- `<nombre>.schema.ts` — schemas Zod + tipos DTO inferidos.
-- `<nombre>.repository.ts` — único lugar que toca `prisma`.
-- `<nombre>.service.ts` — reglas de negocio; traduce errores Prisma (`P2002`, `P2003`, `P2025`) a `{ status, code, message }`.
-- `<nombre>.controller.ts` — parsea request con los schemas, llama al service, responde; todo error va a `next(err)`.
-- `<nombre>.router.ts` — define rutas y middlewares; se monta en `src/core/http/expressApp.ts`.
-
-Transversal en `src/core/`: `http/expressApp.ts` (factory `createApp()`), `errors/errorMiddleware.ts`, `auth/` (JWT, `requireAuth`, `requireRole`).
-
-Convenciones:
-- IDs son `BigInt` en Prisma; `index.ts` parchea `BigInt.prototype.toJSON` para serializar como number.
-- Imports relativos con extensión `.js` (ESM + NodeNext), aunque el archivo sea `.ts`.
-- Errores de negocio: `throw { status: 404, code: 'NOT_FOUND', message: '...' }`. El middleware los serializa como `{ code, message, details }`.
-- Nunca devolver `password_hash`.
-
-## Estructura del frontend
-
-- `src/api/base.ts` — instancia axios (`VITE_API_URL`) con interceptor de token.
-- `src/api/<entidad>.ts` — tipos del modelo + funciones que llaman a la API (la "capa servicio").
-- `src/auth/` — `AuthContext`, `useAuth`, `ProtectedRoute`.
-- `src/pages/` — una página por ruta; `src/components/` — componentes compartidos (layout, tabla, formularios, toasts).
-- Estilos solo con Tailwind, **mobile-first**: escribir la versión chica primero y agregar `md:`/`lg:`.
-- No usar `alert()`/`confirm()`: usar los componentes de feedback compartidos.
+Convenciones: IDs `BigInt` (se serializan como number en `createApp`); imports relativos con `.js`; todo query/param validado con Zod; errores `{ status, code, message }`; nunca devolver `password_hash`.
 
 ## Roles y permisos
 
-Roles en DB: `ADMIN`, `CLIENTE`, `PRESTAMISTA` (un usuario puede tener varios). Perfiles 1:1 en `cliente_profile` / `prestamista_profile` / `admin_profile`.
+`ADMIN`, `PRODUCTOR`, `CONTRATISTA`. Productor y contratista son **excluyentes**; ADMIN se suma a cualquiera. Perfiles 1:1 `productor_profile` / `contratista_profile` sincronizados con los roles en una transacción (`usuario.repository.save`).
 
-- Lectura de catálogos (provincias, localidades, categorías, insumos, servicios): pública.
-- Escritura de catálogos y CRUD de usuarios: `ADMIN`.
-- Servicios y precios: `PRESTAMISTA` dueño (o `ADMIN`).
-- Campos y crear solicitud: `CLIENTE` dueño.
-- Aceptar / rechazar / completar solicitud: `PRESTAMISTA` de esa solicitud.
-- Perfil: el propio usuario; no puede cambiarse los roles.
+- Catálogos (provincias, localidades, categorías, insumos): lectura pública, escritura ADMIN. Usuarios: ADMIN.
+- Contratistas: lectura pública (sin contacto). Servicios y precios: dueño CONTRATISTA o ADMIN; servicio con baja lógica (`activo`).
+- Campos: dueño PRODUCTOR o ADMIN; el contratista de una solicitud puede leer el campo.
+- Solicitudes: crea PRODUCTOR; `pendiente → aceptada | rechazada` (contratista) `| cancelada` (productor); `aceptada → completada` (contratista) `| cancelada` (ambos, con motivo). Importes snapshot: precio vigente × ha + insumos del contratista al precio de referencia. Borrado físico solo ADMIN.
+- Valoraciones: PRODUCTOR de una solicitud completada, una vez.
+
+## Frontend
+
+- `src/api/types.ts` (modelos) e `index.ts` (funciones por endpoint, agrupadas por recurso). `src/auth/` (`AuthProvider`, `useAuth`, `ProtectedRoute`). `src/components/ui` (design system), `components/feedback.tsx` (`useFeedback().toast/confirm`), `components/layout/AppShell.tsx` (`PublicShell`, `AppLayout`, `AnimatedPage`), `components/MapView.tsx`, `components/SolicitarWizard.tsx`. `src/lib/format.ts` (dinero, fechas civiles en UTC, `pluralize`).
+- Rutas públicas bajo `PublicShell` (`/`, `/ingresar`, `/registro`, `/servicios`, `/contratistas`); aplicación bajo `AppLayout` protegido (`/app`, `/perfil`, `/solicitudes`, `/campos`, `/mis-servicios`, `/admin/*`).
+- Estilos solo con Tailwind, mobile-first; nada de `alert()`/`confirm()`. El logout navega y limpia sesión dentro de `startTransition` (React Router v7 navega en transición; si no, la ruta protegida redirige a `/ingresar`).
+- Los DECIMAL de la API llegan como string: usar `fmtMoney`/`fmtHa`/`Number()`.
 
 ## Git
 
-- Rama por feature: `feat/...`, `fix/...`, `chore/...`, `docs/...`, `test/...`. PR a `main`, nunca push directo.
-- Commits en inglés, imperativo, prefijo convencional (`feat:`, `fix:`, `docs:`...).
-- Repartir PRs entre ambos integrantes: la cátedra evalúa la participación de cada uno.
-- Documentación de entrega en `docs/` (índice en `docs/README.md`), en Markdown.
+- Rama por feature (`feat/`, `fix/`, `refactor/`, `docs/`, `test/`), PR a `main`. Commits en inglés, imperativo, prefijo convencional.
+- Documentación de entrega en `docs/` (índice en `docs/README.md`). Al cambiar rutas o schemas: regenerar OpenAPI, actualizar `docs/modelo.md` y la evidencia de tests.
