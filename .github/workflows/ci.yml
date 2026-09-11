@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: agro-dsw
+          MYSQL_USER: agro-dsw
+          MYSQL_PASSWORD: agro-dsw
+        ports: ["3307:3306"]
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: mysql://agro-dsw:agro-dsw@127.0.0.1:3307/agro-dsw
+      JWT_SECRET: ci-secret
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 8
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build shared packages
+        run: pnpm --filter @repo/db build
+      - name: Type-check
+        run: |
+          pnpm --filter server exec tsc -p tsconfig.json --noEmit
+          pnpm --filter web exec tsc --noEmit
+      - name: Migrate and seed test database
+        run: |
+          pnpm --filter @repo/db db:deploy
+          pnpm --filter @repo/db db:seed
+      - name: Server tests (unit + integration)
+        run: pnpm --filter server test
+      - name: Web component tests
+        run: pnpm --filter web test
+      - name: Build web
+        run: pnpm --filter web build

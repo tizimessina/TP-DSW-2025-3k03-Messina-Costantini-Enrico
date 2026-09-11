@@ -9,7 +9,8 @@ Plataforma que conecta **productores agropecuarios (clientes)** con **contratist
 ## Links
 * [Propuesta del TP](proposal.md)
 * [Documentación de entrega](docs/README.md) — instalación, minutas, tracking, API, tests, deploy
-* App: https://agroapp.dev · API: https://api.agroapp.dev
+* App: https://agroapp.dev · API: https://api.agroapp.dev · Swagger: https://api.agroapp.dev/docs
+* Guía detallada de instalación: [docs/instalacion.md](docs/instalacion.md)
 
 ## Stack
 Monorepo **pnpm + Turborepo**. Backend **Node + Express 5 + TypeScript + Prisma + MySQL** (`apps/server`). Frontend **React 18 + Vite + Tailwind** (`apps/web`). Schema y migraciones en `packages/database`.

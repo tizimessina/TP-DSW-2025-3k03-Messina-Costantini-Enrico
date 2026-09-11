@@ -26,7 +26,13 @@ pnpm --filter @repo/db db:deploy    # prisma migrate deploy (prod)
 pnpm --filter @repo/db db:seed      # carga roles, catálogos y usuarios demo
 pnpm --filter server dev     # solo backend (tsx watch)
 pnpm --filter web dev        # solo frontend
+pnpm --filter web test:e2e   # Playwright (levanta server y web solo)
+pnpm --filter server docs:export   # regenera docs/api/openapi.json desde los schemas Zod
 ```
+
+Tests: `apps/server/test/setup.ts` carga `apps/server/.env` antes de que Prisma se conecte, así los tests de integración usan la DB local aunque `packages/database/.env` apunte a producción. Nunca correr tests ni el seed con `DATABASE_URL` de Aiven.
+
+Docs de la API: cada ruta nueva se registra en `apps/server/src/core/docs/openapi.ts` (helper `crud()` o `route()`); Swagger UI en `/docs`.
 
 DB local: contenedor Docker Percona en `localhost:3307`, base `agro-dsw`, usuario `agro-dsw` (ver `packages/database/.env`).
 Importante: `@repo/db` se consume compilado (`dist/`), así que después de tocar `schema.prisma` hay que correr `pnpm --filter @repo/db build`.
