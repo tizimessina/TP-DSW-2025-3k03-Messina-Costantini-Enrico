@@ -1,20 +1,20 @@
 import { Route, Routes } from "react-router-dom";
 import ProtectedRoute from "./auth/ProtectedRoute";
-import Layout from "./components/Layout";
+import { AppLayout, PublicShell } from "./components/layout/AppShell";
 
-import HomePage from "./pages/HomePage";
+import LandingPage from "./pages/LandingPage";
 import AuthPage from "./pages/AuthPage";
-import ProfilePage from "./pages/ProfilePage";
 import ServiciosPage from "./pages/ServiciosPage";
 import ServicioDetailPage from "./pages/ServicioDetailPage";
-import PrestamistasPage from "./pages/PrestamistasPage";
-import PrestamistaDetailPage from "./pages/PrestamistaDetailPage";
+import ContratistasPage from "./pages/ContratistasPage";
+import ContratistaDetailPage from "./pages/ContratistaDetailPage";
+import DashboardPage from "./pages/DashboardPage";
+import PerfilPage from "./pages/PerfilPage";
 import CamposPage from "./pages/CamposPage";
 import CampoDetailPage from "./pages/CampoDetailPage";
 import SolicitudesPage from "./pages/SolicitudesPage";
 import SolicitudDetailPage from "./pages/SolicitudDetailPage";
 import MisServiciosPage from "./pages/MisServiciosPage";
-import PreciosPage from "./pages/PreciosPage";
 import UsuariosPage from "./pages/admin/UsuariosPage";
 import ProvinciasPage from "./pages/admin/ProvinciasPage";
 import LocalidadesPage from "./pages/admin/LocalidadesPage";
@@ -22,38 +22,41 @@ import CategoriasPage from "./pages/admin/CategoriasPage";
 import InsumosPage from "./pages/admin/InsumosPage";
 import NotFoundPage from "./pages/NotFoundPage";
 
+const P = ProtectedRoute;
+
+// Las transiciones de entrada las hace <AnimatedPage> en cada página; no usamos AnimatePresence
+// a nivel de rutas para que una ruta protegida en salida no dispare redirects al cerrar sesión.
 export default function App() {
   return (
     <Routes>
-      <Route element={<Layout />}>
-        {/* Públicas */}
-        <Route path="/" element={<HomePage />} />
-        <Route path="/auth" element={<AuthPage />} />
+      {/* Sitio público */}
+      <Route element={<PublicShell />}>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/ingresar" element={<AuthPage mode="login" />} />
+        <Route path="/registro" element={<AuthPage mode="register" />} />
         <Route path="/servicios" element={<ServiciosPage />} />
         <Route path="/servicios/:id" element={<ServicioDetailPage />} />
-        <Route path="/prestamistas" element={<PrestamistasPage />} />
-        <Route path="/prestamistas/:id" element={<PrestamistaDetailPage />} />
+        <Route path="/contratistas" element={<ContratistasPage />} />
+        <Route path="/contratistas/:id" element={<ContratistaDetailPage />} />
+      </Route>
 
-        {/* Cualquier usuario autenticado */}
-        <Route path="/perfil" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-        <Route path="/solicitudes" element={<ProtectedRoute><SolicitudesPage /></ProtectedRoute>} />
-        <Route path="/solicitudes/:id" element={<ProtectedRoute><SolicitudDetailPage /></ProtectedRoute>} />
+      {/* Aplicación (requiere sesión) */}
+      <Route element={<P><AppLayout /></P>}>
+        <Route path="/app" element={<DashboardPage />} />
+        <Route path="/perfil" element={<PerfilPage />} />
+        <Route path="/solicitudes" element={<SolicitudesPage />} />
+        <Route path="/solicitudes/:id" element={<SolicitudDetailPage />} />
+        <Route path="/campos" element={<P roles={["PRODUCTOR", "ADMIN"]}><CamposPage /></P>} />
+        <Route path="/campos/:id" element={<CampoDetailPage />} />
+        <Route path="/mis-servicios" element={<P roles={["CONTRATISTA"]}><MisServiciosPage /></P>} />
+        <Route path="/admin/usuarios" element={<P roles={["ADMIN"]}><UsuariosPage /></P>} />
+        <Route path="/admin/provincias" element={<P roles={["ADMIN"]}><ProvinciasPage /></P>} />
+        <Route path="/admin/localidades" element={<P roles={["ADMIN"]}><LocalidadesPage /></P>} />
+        <Route path="/admin/categorias" element={<P roles={["ADMIN"]}><CategoriasPage /></P>} />
+        <Route path="/admin/insumos" element={<P roles={["ADMIN"]}><InsumosPage /></P>} />
+      </Route>
 
-        {/* Cliente */}
-        <Route path="/campos" element={<ProtectedRoute roles={["CLIENTE", "ADMIN"]}><CamposPage /></ProtectedRoute>} />
-        <Route path="/campos/:id" element={<ProtectedRoute roles={["CLIENTE", "ADMIN"]}><CampoDetailPage /></ProtectedRoute>} />
-
-        {/* Prestamista */}
-        <Route path="/mis-servicios" element={<ProtectedRoute roles={["PRESTAMISTA"]}><MisServiciosPage /></ProtectedRoute>} />
-        <Route path="/precios" element={<ProtectedRoute roles={["PRESTAMISTA", "ADMIN"]}><PreciosPage /></ProtectedRoute>} />
-
-        {/* Administración */}
-        <Route path="/admin/usuarios" element={<ProtectedRoute roles={["ADMIN"]}><UsuariosPage /></ProtectedRoute>} />
-        <Route path="/admin/provincias" element={<ProtectedRoute roles={["ADMIN"]}><ProvinciasPage /></ProtectedRoute>} />
-        <Route path="/admin/localidades" element={<ProtectedRoute roles={["ADMIN"]}><LocalidadesPage /></ProtectedRoute>} />
-        <Route path="/admin/categorias" element={<ProtectedRoute roles={["ADMIN"]}><CategoriasPage /></ProtectedRoute>} />
-        <Route path="/admin/insumos" element={<ProtectedRoute roles={["ADMIN"]}><InsumosPage /></ProtectedRoute>} />
-
+      <Route element={<PublicShell />}>
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

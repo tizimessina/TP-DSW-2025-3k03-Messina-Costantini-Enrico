@@ -1,168 +1,230 @@
+import { ArrowLeft, Ban, Check, CheckCircle2, Circle, Mail, MapPin, Phone, Star, X } from "lucide-react";
+import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { getApiErrorMessage } from "../api/base";
-import { deleteSolicitud, getSolicitud, updateSolicitudEstado, type SolicitudEstado } from "../api/solicitudes";
+import { getApiErrorMessage, solicitudes as solicitudesApi, valoraciones as valoracionesApi } from "../api";
+import type { Solicitud, SolicitudEstado, UsuarioContacto } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { useFeedback } from "../components/feedback";
-import { Alert, Button, Card, DetailItem, EmptyState, EstadoBadge, LinkButton, PageSpinner, PageTitle, Table, Td, Th } from "../components/ui";
-import { fmtDate, fmtDateTime, fmtMoney, fmtNumber, fullName } from "../lib/format";
+import { AnimatedPage } from "../components/layout/AppShell";
+import { Alert, Avatar, Button, Card, DetailItem, EstadoBadge, PageSpinner, Stars, Table, Td, Textarea, Th, Field, Input } from "../components/ui";
+import { Dialog } from "../components/ui/Dialog";
+import { cn } from "../lib/cn";
+import { fmtDate, fmtDateTime, fmtHa, fmtMoneyExact, fmtNumber, fullName, isoToDateInput, dateInputToIso, ubicacion } from "../lib/format";
 import { useQuery } from "../lib/useQuery";
 
-/** Detalle completo de una solicitud: servicio, categoría, campo, cliente, prestamista, insumos e importes. */
+const PASOS: { estado: SolicitudEstado; label: string }[] = [
+  { estado: "pendiente", label: "Solicitada" },
+  { estado: "aceptada", label: "Aceptada" },
+  { estado: "completada", label: "Completada" },
+];
+
+function Timeline({ s }: { s: Solicitud }) {
+  const terminal = s.estado === "rechazada" || s.estado === "cancelada";
+  const idx = terminal ? 0 : PASOS.findIndex((p) => p.estado === s.estado);
+  return (
+    <ol className="flex items-center gap-2 text-xs font-semibold">
+      {PASOS.map((p, i) => {
+        const done = !terminal && i <= idx;
+        return (
+          <li key={p.estado} className="flex items-center gap-2">
+            <span className={cn("flex h-7 w-7 items-center justify-center rounded-full", done ? "bg-brand-600 text-white" : "bg-stone-200 text-stone-500 dark:bg-stone-800")}>{done ? <Check className="h-4 w-4" /> : <Circle className="h-3 w-3" />}</span>
+            <span className={done ? "text-stone-900 dark:text-white" : "text-stone-400"}>{p.label}</span>
+            {i < PASOS.length - 1 && <span className={cn("h-px w-8 sm:w-14", !terminal && i < idx ? "bg-brand-500" : "bg-stone-300 dark:bg-stone-700")} />}
+          </li>
+        );
+      })}
+      {terminal && (
+        <li className="ml-2 flex items-center gap-2"><span className="flex h-7 w-7 items-center justify-center rounded-full bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-200"><X className="h-4 w-4" /></span><span className="text-red-700 dark:text-red-300">{s.estado === "rechazada" ? "Rechazada" : "Cancelada"}</span></li>
+      )}
+    </ol>
+  );
+}
+
+function Contacto({ titulo, u, extra }: { titulo: string; u?: UsuarioContacto; extra?: string | null }) {
+  return (
+    <div className="flex gap-3">
+      <Avatar name={fullName(u)} />
+      <div className="min-w-0">
+        <p className="text-xs font-medium uppercase tracking-wide text-stone-500">{titulo}</p>
+        <p className="font-bold">{fullName(u)}</p>
+        {extra && <p className="text-xs text-stone-500">{extra}</p>}
+        <p className="mt-1 flex items-center gap-1.5 text-sm text-stone-600 dark:text-stone-300"><MapPin className="h-3.5 w-3.5" />{ubicacion(u?.localidad)}</p>
+        {u?.email && <a href={`mailto:${u.email}`} className="flex items-center gap-1.5 text-sm text-brand-700 hover:underline dark:text-brand-300"><Mail className="h-3.5 w-3.5" />{u.email}</a>}
+        {u?.telefono && <a href={`tel:${u.telefono}`} className="flex items-center gap-1.5 text-sm text-brand-700 hover:underline dark:text-brand-300"><Phone className="h-3.5 w-3.5" />{u.telefono}</a>}
+      </div>
+    </div>
+  );
+}
+
 export default function SolicitudDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user, isAdmin, isCliente, isPrestamista } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { toast, confirm } = useFeedback();
-  const q = useQuery(() => getSolicitud(Number(id)), [id]);
+  const q = useQuery(() => solicitudesApi.get(Number(id)), [id]);
+  const [motivoDialog, setMotivoDialog] = useState<"rechazada" | "cancelada" | null>(null);
+  const [motivo, setMotivo] = useState("");
+  const [aceptarDialog, setAceptarDialog] = useState(false);
+  const [fechaInicio, setFechaInicio] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [rating, setRating] = useState(0);
+  const [comentario, setComentario] = useState("");
 
   if (q.loading) return <PageSpinner />;
   if (q.error || !q.data) return <Alert kind="error">{q.error ?? "Solicitud no encontrada"}</Alert>;
   const s = q.data;
 
-  const puedeGestionar = isAdmin || (isPrestamista && s.id_prestamista === user!.id_user);
-  const puedeCancelar = isAdmin || (isCliente && s.id_cliente === user!.id_user && s.estado === "pendiente");
+  const soyProductor = user?.id_user === s.id_productor;
+  const soyContratista = user?.id_user === s.id_contratista;
+  const puedeAceptar = (soyContratista || isAdmin) && s.estado === "pendiente";
+  const puedeCompletar = (soyContratista || isAdmin) && s.estado === "aceptada";
+  const puedeCancelar = ((soyProductor && (s.estado === "pendiente" || s.estado === "aceptada")) || (soyContratista && s.estado === "aceptada") || (isAdmin && (s.estado === "pendiente" || s.estado === "aceptada")));
+  const puedeValorar = soyProductor && s.estado === "completada" && !s.valoracion;
 
-  const cambiarEstado = async (nuevo: SolicitudEstado) => {
-    if (!(await confirm({ title: "Cambiar estado", message: `¿Pasar la solicitud a "${nuevo}"?`, danger: nuevo === "rechazada" }))) return;
+  const cambiar = async (estado: "aceptada" | "rechazada" | "cancelada" | "completada", extra: Record<string, unknown> = {}) => {
+    setBusy(true);
     try {
-      const updated = await updateSolicitudEstado(s.id_solicitud, { estado: nuevo });
+      const updated = await solicitudesApi.cambiarEstado(s.id_solicitud, { estado, ...extra });
       q.setData(updated);
-      toast.success(`Solicitud ${nuevo}`);
-    } catch (err) {
-      toast.error(getApiErrorMessage(err));
+      toast.success(`Solicitud ${estado}`);
+      setMotivoDialog(null);
+      setAceptarDialog(false);
+      setMotivo("");
+    } catch (e) {
+      toast.error(getApiErrorMessage(e));
+    } finally {
+      setBusy(false);
     }
   };
 
-  const cancelar = async () => {
-    if (!(await confirm({ title: "Cancelar solicitud", message: "¿Cancelar esta solicitud? No se puede deshacer.", danger: true, confirmLabel: "Cancelar solicitud", cancelLabel: "Volver" }))) return;
+  const completar = async () => {
+    if (!(await confirm({ title: "Marcar como completada", message: "¿Confirmás que el trabajo se realizó? El productor va a poder valorarte." }))) return;
+    cambiar("completada");
+  };
+
+  const valorar = async () => {
+    if (!rating) return toast.error("Elegí una puntuación");
+    setBusy(true);
     try {
-      await deleteSolicitud(s.id_solicitud);
-      toast.success("Solicitud cancelada");
-      navigate("/solicitudes");
-    } catch (err) {
-      toast.error(getApiErrorMessage(err));
+      await valoracionesApi.create({ id_solicitud: s.id_solicitud, puntaje: rating, comentario: comentario.trim() || null });
+      toast.success("¡Gracias por tu valoración!");
+      q.reload();
+    } catch (e) {
+      toast.error(getApiErrorMessage(e));
+    } finally {
+      setBusy(false);
     }
+  };
+
+  const eliminar = async () => {
+    if (!(await confirm({ title: "Eliminar solicitud", message: "Borrado físico, solo para administración.", danger: true, confirmLabel: "Eliminar" }))) return;
+    await solicitudesApi.remove(s.id_solicitud);
+    toast.success("Solicitud eliminada");
+    navigate("/solicitudes");
   };
 
   return (
-    <div className="space-y-6">
-      <PageTitle
-        title={`Solicitud #${s.id_solicitud}`}
-        subtitle={`Creada el ${fmtDateTime(s.fecha_solicitud)}`}
-        actions={
-          <>
-            <LinkButton to="/solicitudes" variant="ghost">
-              ← Volver
-            </LinkButton>
-            {puedeGestionar && s.estado === "pendiente" && (
-              <>
-                <Button onClick={() => cambiarEstado("aceptada")}>Aceptar</Button>
-                <Button variant="danger" onClick={() => cambiarEstado("rechazada")}>
-                  Rechazar
-                </Button>
-              </>
-            )}
-            {puedeGestionar && s.estado === "aceptada" && <Button onClick={() => cambiarEstado("completada")}>Marcar completada</Button>}
-            {puedeCancelar && (
-              <Button variant="ghost" onClick={cancelar}>
-                Cancelar solicitud
-              </Button>
-            )}
-          </>
-        }
-      />
+    <AnimatedPage>
+      <Link to="/solicitudes" className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-stone-500 hover:text-stone-800 dark:hover:text-stone-200"><ArrowLeft className="h-4 w-4" /> Solicitudes</Link>
 
-      <div className="flex items-center gap-3">
-        <span className="text-sm text-slate-400">Estado:</span>
-        <EstadoBadge estado={s.estado} />
-        <span className="text-xs text-slate-500">
-          {s.estado === "pendiente" && "Esperando respuesta del prestamista"}
-          {s.estado === "aceptada" && "El prestamista aceptó el trabajo"}
-          {s.estado === "rechazada" && "El prestamista rechazó la solicitud"}
-          {s.estado === "completada" && "Trabajo finalizado"}
-        </span>
+      <div className="surface p-5 sm:p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-semibold text-stone-400">Solicitud #{s.id_solicitud}</span>
+              <EstadoBadge estado={s.estado} />
+            </div>
+            <h1 className="mt-1 text-2xl font-extrabold text-stone-900 sm:text-3xl dark:text-white">{s.servicio?.nombre}</h1>
+            <p className="text-sm text-stone-500">{s.servicio?.categoria?.nombre} · pedida el {fmtDateTime(s.fecha_solicitud)}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {puedeAceptar && <Button icon={<Check className="h-4 w-4" />} onClick={() => { setFechaInicio(isoToDateInput(s.fecha_inicio)); setAceptarDialog(true); }}>Aceptar</Button>}
+            {puedeAceptar && <Button variant="outline" icon={<X className="h-4 w-4" />} onClick={() => setMotivoDialog("rechazada")}>Rechazar</Button>}
+            {puedeCompletar && <Button icon={<CheckCircle2 className="h-4 w-4" />} onClick={completar} loading={busy}>Marcar completada</Button>}
+            {puedeCancelar && <Button variant="ghost" icon={<Ban className="h-4 w-4" />} onClick={() => setMotivoDialog("cancelada")}>Cancelar solicitud</Button>}
+            {isAdmin && <Button variant="danger" size="sm" onClick={eliminar}>Eliminar</Button>}
+          </div>
+        </div>
+        <div className="mt-5 overflow-x-auto"><Timeline s={s} /></div>
+        {(s.estado === "rechazada" || s.estado === "cancelada") && s.motivo && <Alert kind="warning" className="mt-4"><b>Motivo:</b> {s.motivo}</Alert>}
+        {s.estado === "pendiente" && soyContratista && <Alert kind="info" className="mt-4">El productor espera tu respuesta. Al aceptar podés fijar la fecha de inicio.</Alert>}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card title="Servicio">
-          <dl className="space-y-3">
-            <DetailItem label="Servicio">
-              <Link to={`/servicios/${s.id_servicio}`} className="text-emerald-300 hover:underline">
-                {s.servicio?.nombre}
-              </Link>
-            </DetailItem>
-            <DetailItem label="Categoría">{s.servicio?.categoria?.nombre ?? "-"}</DetailItem>
-            <DetailItem label="Hectáreas a trabajar">{fmtNumber(s.hectareas_trabajadas)} ha</DetailItem>
-            <DetailItem label="Fecha de inicio">{fmtDate(s.fecha_inicio)}</DetailItem>
-            <DetailItem label="Fecha de fin">{fmtDate(s.fecha_fin)}</DetailItem>
-          </dl>
-        </Card>
+      <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_380px]">
+        <div className="space-y-6">
+          <Card title="Detalle del trabajo">
+            <dl className="grid gap-4 sm:grid-cols-2">
+              <DetailItem label="Campo"><Link to={`/campos/${s.id_campo}`} className="font-semibold text-brand-700 hover:underline dark:text-brand-300">{s.campo?.nombre}</Link><span className="block text-xs text-stone-500">{ubicacion(s.campo?.localidad)} · {fmtHa(s.campo?.hectareas)} totales</span></DetailItem>
+              <DetailItem label="Hectáreas a trabajar"><span className="text-lg font-bold">{fmtHa(s.hectareas_trabajadas)}</span></DetailItem>
+              <DetailItem label="Fecha de inicio">{fmtDate(s.fecha_inicio)}</DetailItem>
+              <DetailItem label="Fecha de fin">{fmtDate(s.fecha_fin)}</DetailItem>
+              {s.observaciones && <DetailItem label="Observaciones del productor" className="sm:col-span-2"><span className="italic text-stone-600 dark:text-stone-300">“{s.observaciones}”</span></DetailItem>}
+            </dl>
+          </Card>
 
-        <Card title="Campo y cliente">
-          <dl className="space-y-3">
-            <DetailItem label="Campo">
-              <Link to={`/campos/${s.id_campo}`} className="text-emerald-300 hover:underline">
-                {s.campo?.coordenadas}
-              </Link>
-              <span className="text-slate-400"> · {fmtNumber(s.campo?.hectareas)} ha totales</span>
-            </DetailItem>
-            <DetailItem label="Cliente">{fullName(s.cliente_profile?.users)}</DetailItem>
-            <DetailItem label="Contacto">{s.cliente_profile?.users.email ?? "-"}</DetailItem>
-            <DetailItem label="Localidad">{s.cliente_profile?.users.localidad?.nombre ?? "-"}</DetailItem>
-          </dl>
-        </Card>
+          <Card title="Insumos" subtitle="Solo se cobran los que aporta el contratista, al precio de referencia del momento.">
+            {!s.solicitud_insumo?.length ? (
+              <p className="text-sm text-stone-500">Sin insumos.</p>
+            ) : (
+              <Table>
+                <thead><tr><Th>Insumo</Th><Th>Cantidad</Th><Th>Lo aporta</Th><Th>Precio unit.</Th><Th className="text-right">Subtotal</Th></tr></thead>
+                <tbody>
+                  {s.solicitud_insumo.map((i) => (
+                    <tr key={i.id_solicitud_insumo ?? i.id_insumo}>
+                      <Td className="font-medium">{i.insumo?.nombre}</Td>
+                      <Td>{fmtNumber(i.cantidad)} {i.insumo?.unidad}</Td>
+                      <Td>{i.proveedor === "PRODUCTOR" ? "Productor" : "Contratista"}</Td>
+                      <Td>{i.proveedor === "PRODUCTOR" ? "—" : fmtMoneyExact(i.precio_unit)}</Td>
+                      <Td className="text-right font-semibold">{i.proveedor === "PRODUCTOR" ? "—" : fmtMoneyExact(Number(i.cantidad) * Number(i.precio_unit))}</Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            )}
+          </Card>
 
-        <Card title="Prestamista">
-          <dl className="space-y-3">
-            <DetailItem label="Nombre">
-              <Link to={`/prestamistas/${s.id_prestamista}`} className="text-emerald-300 hover:underline">
-                {fullName(s.prestamista_profile?.users)}
-              </Link>
-            </DetailItem>
-            <DetailItem label="Contacto">{s.prestamista_profile?.users.email ?? "-"}</DetailItem>
-            <DetailItem label="Localidad">{s.prestamista_profile?.users.localidad?.nombre ?? "-"}</DetailItem>
-          </dl>
-        </Card>
-
-        <Card title="Insumos" className="lg:col-span-2">
-          {!s.solicitud_insumo?.length ? (
-            <EmptyState>Sin insumos asociados.</EmptyState>
-          ) : (
-            <Table>
-              <thead>
-                <tr>
-                  <Th>Insumo</Th>
-                  <Th>Cantidad</Th>
-                  <Th>Precio unit.</Th>
-                  <Th>Lo provee</Th>
-                  <Th>Subtotal</Th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800">
-                {s.solicitud_insumo.map((i) => (
-                  <tr key={i.id_solicitud_insumo ?? i.id_insumo}>
-                    <Td>{i.insumo?.nombre ?? `Insumo #${i.id_insumo}`}</Td>
-                    <Td>{fmtNumber(i.cantidad)}</Td>
-                    <Td>{fmtMoney(i.precio_unit)}</Td>
-                    <Td className="capitalize">{i.proveedor.toLowerCase()}</Td>
-                    <Td>{fmtMoney(Number(i.cantidad) * Number(i.precio_unit))}</Td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
+          {s.valoracion && (
+            <Card title="Valoración del productor">
+              <Stars value={s.valoracion.puntaje} size="md" />
+              {s.valoracion.comentario && <p className="mt-2 text-stone-700 dark:text-stone-300">“{s.valoracion.comentario}”</p>}
+              <p className="mt-1 text-xs text-stone-500">{fmtDate(s.valoracion.fecha)}</p>
+            </Card>
           )}
-        </Card>
+          {puedeValorar && (
+            <Card title="¿Cómo fue el trabajo?" subtitle="Tu valoración se muestra en el perfil del contratista y ayuda a otros productores.">
+              <Stars value={rating || null} size="lg" onChange={setRating} />
+              <Textarea className="mt-3" placeholder="Contá cómo te fue (opcional)" value={comentario} onChange={(e) => setComentario(e.target.value)} maxLength={500} />
+              <Button className="mt-3" icon={<Star className="h-4 w-4" />} onClick={valorar} loading={busy}>Enviar valoración</Button>
+            </Card>
+          )}
+        </div>
 
-        <Card title="Importes">
-          <dl className="space-y-3">
-            <DetailItem label="Servicio">{fmtMoney(s.precio_servicio)}</DetailItem>
-            <DetailItem label="Insumos">{fmtMoney(s.costo_insumos)}</DetailItem>
-            <DetailItem label="Total">
-              <span className="text-xl font-bold text-emerald-200">{fmtMoney(s.precio_total)}</span>
-            </DetailItem>
-          </dl>
-        </Card>
+        <div className="space-y-6">
+          <Card title="Importes">
+            <dl className="space-y-2 text-sm">
+              <div className="flex justify-between"><dt className="text-stone-500">Servicio ({fmtMoneyExact(s.precio_hectarea)} × {fmtNumber(s.hectareas_trabajadas)} ha)</dt><dd className="font-semibold">{fmtMoneyExact(s.precio_servicio)}</dd></div>
+              <div className="flex justify-between"><dt className="text-stone-500">Insumos del contratista</dt><dd className="font-semibold">{fmtMoneyExact(s.costo_insumos)}</dd></div>
+              <div className="flex justify-between border-t border-stone-200 pt-2 dark:border-stone-700"><dt className="font-bold">Total</dt><dd className="text-2xl font-extrabold text-brand-700 dark:text-brand-300">{fmtMoneyExact(s.precio_total)}</dd></div>
+            </dl>
+          </Card>
+          <Card>
+            <div className="space-y-5">
+              <Contacto titulo="Contratista" u={s.contratista_profile?.users} extra={s.contratista_profile?.descripcion ?? undefined} />
+              <div className="h-px bg-stone-200 dark:bg-stone-800" />
+              <Contacto titulo="Productor" u={s.productor_profile?.users} extra={s.productor_profile?.razon_social ?? undefined} />
+            </div>
+          </Card>
+        </div>
       </div>
-    </div>
+
+      <Dialog open={aceptarDialog} onClose={() => setAceptarDialog(false)} title="Aceptar solicitud" size="sm" footer={<><Button variant="ghost" onClick={() => setAceptarDialog(false)}>Volver</Button><Button loading={busy} onClick={() => cambiar("aceptada", { fecha_inicio: dateInputToIso(fechaInicio) ?? null })}>Confirmar</Button></>}>
+        <p className="text-sm text-stone-600 dark:text-stone-300">Al aceptar te comprometés a realizar el trabajo por {fmtMoneyExact(s.precio_total)}. Podés indicar cuándo empezás.</p>
+        <Field label="Fecha de inicio" className="mt-4" hint={s.fecha_inicio ? `El productor pidió ${fmtDate(s.fecha_inicio)}` : "Si la dejás vacía, se toma hoy"}><Input type="date" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} /></Field>
+      </Dialog>
+
+      <Dialog open={!!motivoDialog} onClose={() => setMotivoDialog(null)} title={motivoDialog === "rechazada" ? "Rechazar solicitud" : "Cancelar solicitud"} size="sm" footer={<><Button variant="ghost" onClick={() => setMotivoDialog(null)}>Volver</Button><Button variant="danger" loading={busy} disabled={motivo.trim().length < 3} onClick={() => cambiar(motivoDialog!, { motivo: motivo.trim() })}>{motivoDialog === "rechazada" ? "Rechazar" : "Cancelar solicitud"}</Button></>}>
+        <Field label="Motivo" required hint="La otra parte lo va a ver."><Textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} maxLength={500} placeholder={motivoDialog === "rechazada" ? "Ej: no tengo disponibilidad en esa fecha" : "Ej: cambió el plan de siembra"} /></Field>
+      </Dialog>
+    </AnimatedPage>
   );
 }

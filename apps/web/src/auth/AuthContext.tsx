@@ -1,30 +1,30 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { TOKEN_KEY, USER_KEY, setUnauthorizedHandler } from "../api/base";
-import * as authApi from "../api/auth";
-import type { AuthUser, RegisterPayload, RoleName } from "../api/auth";
+import { auth as authApi, type RegisterPayload } from "../api";
+import type { RoleName, Usuario } from "../api/types";
 
 type AuthContextValue = {
-  user: AuthUser | null;
+  user: Usuario | null;
   token: string | null;
   /** true mientras se valida la sesión guardada al cargar la app */
   loading: boolean;
-  login: (email: string, password: string) => Promise<AuthUser>;
-  register: (data: RegisterPayload) => Promise<AuthUser>;
+  login: (email: string, password: string) => Promise<Usuario>;
+  register: (data: RegisterPayload) => Promise<Usuario>;
   logout: () => void;
-  /** Reemplaza el usuario en memoria y storage (p. ej. tras editar el perfil) */
-  setUser: (user: AuthUser) => void;
+  setUser: (user: Usuario) => void;
+  refresh: () => Promise<void>;
   hasRole: (...roles: RoleName[]) => boolean;
   isAdmin: boolean;
-  isCliente: boolean;
-  isPrestamista: boolean;
+  isProductor: boolean;
+  isContratista: boolean;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function readStoredUser(): AuthUser | null {
+function readStoredUser(): Usuario | null {
   try {
     const raw = localStorage.getItem(USER_KEY);
-    return raw ? (JSON.parse(raw) as AuthUser) : null;
+    return raw ? (JSON.parse(raw) as Usuario) : null;
   } catch {
     return null;
   }
@@ -32,10 +32,10 @@ function readStoredUser(): AuthUser | null {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_KEY));
-  const [user, setUserState] = useState<AuthUser | null>(() => (token ? readStoredUser() : null));
+  const [user, setUserState] = useState<Usuario | null>(() => (token ? readStoredUser() : null));
   const [loading, setLoading] = useState<boolean>(!!token);
 
-  const persist = useCallback((nextToken: string | null, nextUser: AuthUser | null) => {
+  const persist = useCallback((nextToken: string | null, nextUser: Usuario | null) => {
     if (nextToken && nextUser) {
       localStorage.setItem(TOKEN_KEY, nextToken);
       localStorage.setItem(USER_KEY, JSON.stringify(nextUser));
@@ -49,29 +49,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => persist(null, null), [persist]);
 
-  // Al montar: si hay token guardado, validarlo contra /auth/me.
+  const refresh = useCallback(async () => {
+    const current = localStorage.getItem(TOKEN_KEY);
+    if (!current) return;
+    const u = await authApi.me();
+    persist(current, u);
+  }, [persist]);
+
+  // Al montar: validar el token guardado contra /auth/me (roles vigentes)
   useEffect(() => {
     if (!token) return;
     let cancelled = false;
     authApi
       .me()
-      .then((u) => {
-        if (!cancelled) persist(token, u);
-      })
-      .catch(() => {
-        if (!cancelled) logout();
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+      .then((u) => !cancelled && persist(token, u))
+      .catch(() => !cancelled && logout())
+      .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
     };
-    // Solo al montar
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Si cualquier request devuelve 401, cerramos sesión.
   useEffect(() => {
     setUnauthorizedHandler(logout);
     return () => setUnauthorizedHandler(null);
@@ -95,24 +94,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [persist],
   );
 
-  const setUser = useCallback((u: AuthUser) => persist(token, u), [persist, token]);
+  const setUser = useCallback((u: Usuario) => persist(token, u), [persist, token]);
 
   const value = useMemo<AuthContextValue>(() => {
     const hasRole = (...roles: RoleName[]) => !!user && roles.some((r) => user.roles.includes(r));
     return {
-      user,
-      token,
-      loading,
-      login,
-      register,
-      logout,
-      setUser,
-      hasRole,
+      user, token, loading, login, register, logout, setUser, refresh, hasRole,
       isAdmin: hasRole("ADMIN"),
-      isCliente: hasRole("CLIENTE"),
-      isPrestamista: hasRole("PRESTAMISTA"),
+      isProductor: hasRole("PRODUCTOR"),
+      isContratista: hasRole("CONTRATISTA"),
     };
-  }, [user, token, loading, login, register, logout, setUser]);
+  }, [user, token, loading, login, register, logout, setUser, refresh]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

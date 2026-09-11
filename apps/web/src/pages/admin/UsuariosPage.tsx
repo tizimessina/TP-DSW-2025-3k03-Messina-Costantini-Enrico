@@ -1,202 +1,147 @@
+import { Pencil, Plus, Trash2, Users } from "lucide-react";
 import { useState, type FormEvent } from "react";
-import { ROLE_LABELS, type RoleName } from "../../api/auth";
-import { getApiErrorMessage } from "../../api/base";
-import { getLocalidades } from "../../api/localidades";
-import { createUsuario, deleteUsuario, getUsuarios, updateUsuario, type Usuario } from "../../api/usuarios";
+import { getApiErrorMessage, localidades as localidadesApi, usuarios as usuariosApi } from "../../api";
+import { ROLE_LABELS, type RoleName, type Usuario } from "../../api/types";
 import { useAuth } from "../../auth/AuthContext";
 import { useFeedback } from "../../components/feedback";
-import { Alert, Button, Card, EmptyState, Field, Input, PageSpinner, PageTitle, RoleBadge, Select, Table, Td, Th } from "../../components/ui";
+import { AnimatedPage } from "../../components/layout/AppShell";
+import { Alert, Avatar, Button, Card, EmptyState, Field, Input, PageHeader, Pagination, RoleBadge, Select, Skeleton, Td, Th } from "../../components/ui";
+import { Dialog } from "../../components/ui/Dialog";
+import { cn } from "../../lib/cn";
+import { fullName, ubicacion } from "../../lib/format";
+import { useDebounce } from "../../lib/useDebounce";
 import { useQuery } from "../../lib/useQuery";
 
-const ALL_ROLES: RoleName[] = ["ADMIN", "CLIENTE", "PRESTAMISTA"];
+const ALL: RoleName[] = ["ADMIN", "PRODUCTOR", "CONTRATISTA"];
+type Form = { email: string; password: string; nombre: string; apellido: string; roles: RoleName[]; id_localidad: string; telefono: string; cuil_cuit: string };
+const empty: Form = { email: "", password: "", nombre: "", apellido: "", roles: ["PRODUCTOR"], id_localidad: "", telefono: "", cuil_cuit: "" };
 
-type FormState = { email: string; password: string; nombre: string; apellido: string; roles: RoleName[]; id_localidad: string };
-const empty: FormState = { email: "", password: "", nombre: "", apellido: "", roles: ["CLIENTE"], id_localidad: "" };
-
-/** CRUD simple: Usuario con asignación de roles (ADMIN). */
 export default function UsuariosPage() {
   const { user: me } = useAuth();
   const { toast, confirm } = useFeedback();
   const [q, setQ] = useState("");
+  const dq = useDebounce(q);
   const [role, setRole] = useState<RoleName | "">("");
-  const usuarios = useQuery(() => getUsuarios({ q: q || undefined, role: role || undefined }), [q, role]);
-  const localidades = useQuery(() => getLocalidades(), []);
-
-  const [editing, setEditing] = useState<Usuario | null>(null);
-  const [form, setForm] = useState<FormState>(empty);
+  const [page, setPage] = useState(1);
+  const lista = useQuery(() => usuariosApi.list({ q: dq || undefined, role: role || undefined, page, pageSize: 15 }), [dq, role, page]);
+  const localidades = useQuery(() => localidadesApi.list(), []);
+  const [editing, setEditing] = useState<Usuario | null | undefined>(undefined);
+  const [form, setForm] = useState<Form>(empty);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  const set = (name: keyof FormState) => (e: { target: { value: string } }) => setForm((p) => ({ ...p, [name]: e.target.value }));
-  const toggleRole = (r: RoleName) =>
-    setForm((p) => ({ ...p, roles: p.roles.includes(r) ? p.roles.filter((x) => x !== r) : [...p.roles, r] }));
-
-  const reset = () => {
-    setEditing(null);
-    setForm(empty);
-    setError(null);
-  };
-
-  const startEdit = (u: Usuario) => {
+  const open = (u: Usuario | null) => {
     setEditing(u);
-    setForm({ email: u.email, password: "", nombre: u.nombre, apellido: u.apellido, roles: u.roles, id_localidad: u.id_localidad ? String(u.id_localidad) : "" });
     setError(null);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setForm(u ? { email: u.email, password: "", nombre: u.nombre, apellido: u.apellido, roles: u.roles, id_localidad: u.id_localidad ? String(u.id_localidad) : "", telefono: u.telefono ?? "", cuil_cuit: u.cuil_cuit ?? "" } : empty);
   };
+  const set = (k: keyof Form) => (e: { target: { value: string } }) => setForm((p) => ({ ...p, [k]: e.target.value }));
+  const toggleRole = (r: RoleName) => setForm((p) => {
+    let roles = p.roles.includes(r) ? p.roles.filter((x) => x !== r) : [...p.roles, r];
+    // productor y contratista son excluyentes
+    if (r === "PRODUCTOR" && roles.includes("PRODUCTOR")) roles = roles.filter((x) => x !== "CONTRATISTA");
+    if (r === "CONTRATISTA" && roles.includes("CONTRATISTA")) roles = roles.filter((x) => x !== "PRODUCTOR");
+    return { ...p, roles };
+  });
 
-  const handleSubmit = async (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (form.roles.length === 0) return setError("Asigná al menos un rol.");
-    if (!editing && form.password.length < 6) return setError("La contraseña debe tener al menos 6 caracteres.");
-    const base = {
-      email: form.email.trim(),
-      nombre: form.nombre.trim(),
-      apellido: form.apellido.trim(),
-      roles: form.roles,
-      id_localidad: form.id_localidad ? Number(form.id_localidad) : null,
-    };
+    if (!form.roles.length) return setError("Asigná al menos un rol.");
+    setSaving(true);
+    const base = { email: form.email.trim(), nombre: form.nombre.trim(), apellido: form.apellido.trim(), roles: form.roles, id_localidad: form.id_localidad ? Number(form.id_localidad) : null, telefono: form.telefono.trim() || null, cuil_cuit: form.cuil_cuit.trim() || null };
     try {
-      if (editing) {
-        await updateUsuario(editing.id_user, { ...base, ...(form.password ? { password: form.password } : {}) });
-        toast.success("Usuario actualizado");
-      } else {
-        await createUsuario({ ...base, password: form.password });
-        toast.success("Usuario creado");
-      }
-      reset();
-      usuarios.reload();
+      if (editing) await usuariosApi.update(editing.id_user, { ...base, ...(form.password ? { password: form.password } : {}) });
+      else await usuariosApi.create({ ...base, password: form.password });
+      toast.success(editing ? "Usuario actualizado" : "Usuario creado");
+      setEditing(undefined);
+      lista.reload();
     } catch (err) {
       setError(getApiErrorMessage(err));
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleDelete = async (u: Usuario) => {
-    if (!(await confirm({ title: "Eliminar usuario", message: `¿Eliminar a ${u.nombre} ${u.apellido} (${u.email})?`, danger: true, confirmLabel: "Eliminar" }))) return;
+  const del = async (u: Usuario) => {
+    if (!(await confirm({ title: "Eliminar usuario", message: `¿Eliminar a ${fullName(u)} (${u.email})? Solo es posible si no tiene campos, servicios ni solicitudes.`, danger: true, confirmLabel: "Eliminar" }))) return;
     try {
-      await deleteUsuario(u.id_user);
+      await usuariosApi.remove(u.id_user);
       toast.success("Usuario eliminado");
-      usuarios.reload();
+      lista.reload();
     } catch (err) {
       toast.error(getApiErrorMessage(err));
     }
   };
 
   return (
-    <div className="space-y-6">
-      <PageTitle title="Usuarios" subtitle="Alta, edición y asignación de roles." />
-      <div className="grid gap-6 lg:grid-cols-[1fr_2fr]">
-        <Card title={editing ? `Editar: ${editing.email}` : "Nuevo usuario"}>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <Field label="Email">
-              <Input type="email" value={form.email} onChange={set("email")} required />
-            </Field>
-            <Field label={editing ? "Nueva contraseña (opcional)" : "Contraseña"}>
-              <Input type="password" autoComplete="new-password" value={form.password} onChange={set("password")} required={!editing} minLength={6} />
-            </Field>
+    <AnimatedPage>
+      <PageHeader eyebrow="Administración" title="Usuarios" subtitle="Alta, edición y roles. Un usuario es productor o contratista, no ambos; ADMIN se puede sumar a cualquiera." actions={<Button icon={<Plus className="h-4 w-4" />} onClick={() => open(null)}>Nuevo usuario</Button>} />
+      <Card padded={false}>
+        <div className="grid gap-3 p-4 sm:grid-cols-2 lg:max-w-2xl">
+          <Input placeholder="Buscar por nombre o email" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} />
+          <Select value={role} onChange={(e) => { setRole(e.target.value as RoleName | ""); setPage(1); }}>
+            <option value="">Todos los roles</option>
+            {ALL.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+          </Select>
+        </div>
+        {lista.error && <div className="px-4 pb-4"><Alert kind="error">{lista.error}</Alert></div>}
+        {lista.loading ? (
+          <div className="space-y-2 p-4">{[...Array(6)].map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
+        ) : !lista.data?.items.length ? (
+          <div className="p-4"><EmptyState icon={<Users className="h-6 w-6" />} title="Sin resultados" /></div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead><tr><Th>Usuario</Th><Th>Roles</Th><Th>Localidad</Th><Th>Teléfono</Th><Th className="text-right">Acciones</Th></tr></thead>
+              <tbody>
+                {lista.data.items.map((u) => (
+                  <tr key={u.id_user} className={cn("transition hover:bg-stone-50 dark:hover:bg-stone-800/50", u.id_user === me?.id_user && "bg-brand-50/40 dark:bg-brand-900/10")}>
+                    <Td><span className="flex items-center gap-3"><Avatar name={fullName(u)} size="sm" /><span><span className="block font-semibold">{fullName(u)}</span><span className="block text-xs text-stone-500">{u.email}</span></span></span></Td>
+                    <Td><span className="flex flex-wrap gap-1">{u.roles.map((r) => <RoleBadge key={r} role={r} />)}</span></Td>
+                    <Td>{ubicacion(u.localidad)}</Td>
+                    <Td>{u.telefono || "—"}</Td>
+                    <Td className="text-right"><span className="inline-flex gap-1"><Button variant="ghost" size="sm" onClick={() => open(u)} aria-label="Editar"><Pencil className="h-4 w-4" /></Button><Button variant="ghost" size="sm" onClick={() => del(u)} disabled={u.id_user === me?.id_user} aria-label="Eliminar"><Trash2 className="h-4 w-4 text-red-500" /></Button></span></Td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {lista.data && <div className="px-4 pb-4"><Pagination page={lista.data.page} totalPages={lista.data.totalPages} total={lista.data.total} onChange={setPage} /></div>}
+      </Card>
+
+      {editing !== undefined && (
+        <Dialog open onClose={() => setEditing(undefined)} title={editing ? `Editar ${fullName(editing)}` : "Nuevo usuario"} footer={<><Button variant="ghost" onClick={() => setEditing(undefined)}>Cancelar</Button><Button form="user-form" type="submit" loading={saving}>Guardar</Button></>}>
+          <form id="user-form" onSubmit={submit} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Nombre">
-                <Input value={form.nombre} onChange={set("nombre")} required />
-              </Field>
-              <Field label="Apellido">
-                <Input value={form.apellido} onChange={set("apellido")} required />
+              <Field label="Nombre" required><Input value={form.nombre} onChange={set("nombre")} required /></Field>
+              <Field label="Apellido" required><Input value={form.apellido} onChange={set("apellido")} required /></Field>
+              <Field label="Email" required><Input type="email" value={form.email} onChange={set("email")} required /></Field>
+              <Field label={editing ? "Nueva contraseña (opcional)" : "Contraseña"} required={!editing} hint="Mínimo 8 caracteres"><Input type="password" autoComplete="new-password" value={form.password} onChange={set("password")} required={!editing} minLength={8} /></Field>
+              <Field label="CUIL / CUIT"><Input value={form.cuil_cuit} onChange={set("cuil_cuit")} placeholder="20-12345678-9" /></Field>
+              <Field label="Teléfono"><Input value={form.telefono} onChange={set("telefono")} /></Field>
+              <Field label="Localidad" className="sm:col-span-2">
+                <Select value={form.id_localidad} onChange={set("id_localidad")}>
+                  <option value="">Sin localidad</option>
+                  {localidades.data?.map((l) => <option key={l.id_localidad} value={l.id_localidad}>{l.nombre}{l.provincia ? ` (${l.provincia.nombre})` : ""}</option>)}
+                </Select>
               </Field>
             </div>
-            <Field label="Localidad">
-              <Select value={form.id_localidad} onChange={set("id_localidad")}>
-                <option value="">Sin localidad</option>
-                {localidades.data?.map((l) => (
-                  <option key={l.id_localidad} value={l.id_localidad}>
-                    {l.nombre}
-                    {l.provincia ? ` (${l.provincia.nombre})` : ""}
-                  </option>
-                ))}
-              </Select>
-            </Field>
             <fieldset>
-              <legend className="mb-1 block text-xs font-medium text-slate-300">Roles</legend>
-              <div className="flex flex-wrap gap-4">
-                {ALL_ROLES.map((r) => (
-                  <label key={r} className="flex items-center gap-2 text-sm text-slate-200">
-                    <input type="checkbox" checked={form.roles.includes(r)} onChange={() => toggleRole(r)} className="accent-emerald-500" />
+              <legend className="mb-2 text-sm font-medium text-stone-700 dark:text-stone-300">Roles</legend>
+              <div className="flex flex-wrap gap-2">
+                {ALL.map((r) => (
+                  <button key={r} type="button" onClick={() => toggleRole(r)} aria-pressed={form.roles.includes(r)} className={cn("rounded-xl border-2 px-3 py-1.5 text-sm font-semibold transition", form.roles.includes(r) ? "border-brand-600 bg-brand-50 text-brand-800 dark:bg-brand-900/30 dark:text-brand-100" : "border-stone-200 text-stone-600 hover:border-stone-300 dark:border-stone-700 dark:text-stone-300")}>
                     {ROLE_LABELS[r]}
-                  </label>
+                  </button>
                 ))}
               </div>
             </fieldset>
             {error && <Alert kind="error">{error}</Alert>}
-            <div className="flex gap-2">
-              <Button type="submit">{editing ? "Guardar" : "Crear usuario"}</Button>
-              {editing && (
-                <Button type="button" variant="ghost" onClick={reset}>
-                  Cancelar
-                </Button>
-              )}
-            </div>
           </form>
-        </Card>
-
-        <Card title="Listado">
-          <div className="mb-4 grid gap-3 sm:grid-cols-2">
-            <Input placeholder="Buscar por nombre o email" value={q} onChange={(e) => setQ(e.target.value)} />
-            <Select value={role} onChange={(e) => setRole(e.target.value as RoleName | "")}>
-              <option value="">Todos los roles</option>
-              {ALL_ROLES.map((r) => (
-                <option key={r} value={r}>
-                  {ROLE_LABELS[r]}
-                </option>
-              ))}
-            </Select>
-          </div>
-          {usuarios.loading ? (
-            <PageSpinner />
-          ) : usuarios.error ? (
-            <Alert kind="error">{usuarios.error}</Alert>
-          ) : !usuarios.data?.length ? (
-            <EmptyState>Sin resultados.</EmptyState>
-          ) : (
-            <Table>
-              <thead>
-                <tr>
-                  <Th>Usuario</Th>
-                  <Th>Roles</Th>
-                  <Th>Localidad</Th>
-                  <Th className="text-right">Acciones</Th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800">
-                {usuarios.data.map((u) => (
-                  <tr key={u.id_user} className="hover:bg-slate-800/40">
-                    <Td>
-                      <span className="font-medium">
-                        {u.nombre} {u.apellido}
-                      </span>
-                      <span className="block text-xs text-slate-500">{u.email}</span>
-                    </Td>
-                    <Td>
-                      <div className="flex flex-wrap gap-1">
-                        {u.roles.map((r) => (
-                          <RoleBadge key={r} role={r} />
-                        ))}
-                      </div>
-                    </Td>
-                    <Td>{u.localidad?.nombre ?? "-"}</Td>
-                    <Td className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button size="sm" variant="secondary" onClick={() => startEdit(u)}>
-                          Editar
-                        </Button>
-                        <Button size="sm" variant="danger" onClick={() => handleDelete(u)} disabled={u.id_user === me?.id_user}>
-                          Eliminar
-                        </Button>
-                      </div>
-                    </Td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-          )}
-        </Card>
-      </div>
-    </div>
+        </Dialog>
+      )}
+    </AnimatedPage>
   );
 }

@@ -2,24 +2,73 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Layout global para ocupar toda la pantalla */
-html,
-body,
-#root {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  height: 100%;
+@layer base {
+  :root {
+    color-scheme: light;
+    --ring: 46 125 79;
+  }
+  .dark {
+    color-scheme: dark;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-sand-100 font-sans text-stone-800 dark:bg-stone-950 dark:text-stone-100;
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-display tracking-tight;
+  }
+
+  ::selection {
+    @apply bg-brand-200 text-brand-900;
+  }
+
+  /* Foco visible y consistente */
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand-500/60 ring-offset-2 ring-offset-sand-100 dark:ring-offset-stone-950;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 }
 
-/* Fondo y tipografía base */
-:root {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
-  line-height: 1.5;
-  color: #e5e7eb; /* slate-200 */
+@layer components {
+  /* Superficie base de tarjetas y paneles */
+  .surface {
+    @apply rounded-2xl border border-stone-200/70 bg-white shadow-card dark:border-stone-800 dark:bg-stone-900;
+  }
+  .surface-hover {
+    @apply transition-all duration-300 hover:-translate-y-0.5 hover:shadow-card-hover hover:border-brand-300/70 dark:hover:border-brand-700;
+  }
+  /* Skeleton con shimmer */
+  .skeleton {
+    @apply animate-shimmer rounded-md bg-[linear-gradient(90deg,theme(colors.stone.200)_25%,theme(colors.stone.100)_50%,theme(colors.stone.200)_75%)] bg-[length:200%_100%] dark:bg-[linear-gradient(90deg,theme(colors.stone.800)_25%,theme(colors.stone.700)_50%,theme(colors.stone.800)_75%)];
+  }
+  /* Scrollbar sutil */
+  .scrollbar-thin::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-stone-300 dark:bg-stone-700;
+  }
 }
 
-body {
-  background-color: #020617; /* slate-950 */
+/* Leaflet dentro del tema */
+.leaflet-container {
+  @apply rounded-xl font-sans;
+  z-index: 0;
+}
+.dark .leaflet-tile {
+  filter: brightness(0.8) contrast(1.05) saturate(0.85);
 }
