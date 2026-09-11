@@ -48,7 +48,7 @@ Opción B, a mano (**New → Web Service**):
 |:-|:-|
 | Root directory | *(vacío, raíz del monorepo)* |
 | Runtime | Node |
-| Build command | `corepack enable && pnpm install --frozen-lockfile && pnpm --filter @repo/db build && pnpm --filter server build` |
+| Build command | `corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm --filter @repo/db build && pnpm --filter server build` |
 | Start command | `node apps/server/dist/index.js` |
 | Health check path | `/health` |
 
