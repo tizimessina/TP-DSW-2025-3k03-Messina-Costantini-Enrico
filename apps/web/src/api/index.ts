@@ -3,7 +3,7 @@
  */
 import { api } from "./base";
 import type {
-  Campo, Categoria, Contratista, Insumo, Localidad, Notificacion, Page, Precio, Provincia, Resumen, RoleName,
+  Campo, Categoria, Contratista, Insumo, Localidad, Notificacion, Page, Precio, Provincia, ReferenciaPrecio, Resumen, RoleName,
   Servicio, Solicitud, SolicitudEstado, SolicitudResumen, Usuario, Valoracion, InsumoProveedor,
 } from "./types";
 
@@ -72,10 +72,12 @@ export const usuarios = {
 };
 
 /* ---------- Contratistas (público) ---------- */
-export type ContratistaQuery = { q?: string; id_localidad?: number; id_provincia?: number; id_campo?: number; id_categoria?: number; page?: number; pageSize?: number };
+export type ContratistaQuery = { q?: string; id_localidad?: number; id_provincia?: number; id_campo?: number; id_categoria?: number; verificado?: boolean; page?: number; pageSize?: number };
 export const contratistas = {
   list: async (params?: ContratistaQuery) => (await api.get<Page<Contratista> & { alcance: "localidad" | "provincia" | "todos" }>("/contratistas", { params })).data,
   get: async (id: number) => (await api.get<Contratista>(`/contratistas/${id}`)).data,
+  /** Solo ADMIN: otorga o quita la insignia de verificado. */
+  verificar: async (id: number, verificado: boolean) => (await api.put<Contratista>(`/contratistas/${id}/verificado`, { verificado })).data,
 };
 
 /* ---------- Servicios y precios ---------- */
@@ -87,6 +89,8 @@ export const servicios = {
   create: async (data: ServicioInput) => (await api.post<Servicio>("/servicios", data)).data,
   update: async (id: number, data: Partial<Omit<ServicioInput, "precio_inicial">> & { activo?: boolean }) => (await api.put<Servicio>(`/servicios/${id}`, data)).data,
   desactivar: async (id: number) => (await api.delete<Servicio>(`/servicios/${id}`)).data,
+  /** Precio de mercado de la categoría, calculado con los precios vigentes del sistema. */
+  referenciaPrecio: async (id: number) => (await api.get<ReferenciaPrecio>(`/servicios/${id}/referencia-precio`)).data,
 };
 
 export const precios = {

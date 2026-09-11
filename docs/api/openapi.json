@@ -3012,6 +3012,15 @@
             "required": false,
             "name": "id_categoria",
             "in": "query"
+          },
+          {
+            "schema": {
+              "type": "boolean",
+              "nullable": true
+            },
+            "required": false,
+            "name": "verificado",
+            "in": "query"
           }
         ],
         "responses": {
@@ -3079,6 +3088,98 @@
                   "additionalProperties": {
                     "nullable": true
                   }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No encontrado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/contratistas/{id}/verificado": {
+      "put": {
+        "tags": [
+          "Contratistas"
+        ],
+        "summary": "Otorgar o quitar la insignia de verificado",
+        "description": "Solo ADMIN. La insignia indica que se revisaron identidad y datos fiscales; queda registrada la fecha.\n\nRequiere rol: ADMIN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true,
+              "description": "Identificador numérico"
+            },
+            "required": true,
+            "description": "Identificador numérico",
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "description": "Estado de la insignia",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "verificado": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "verificado"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Contratista",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": {
+                    "nullable": true
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin token o token inválido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sin permisos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -3503,6 +3604,41 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No encontrado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/servicios/{id}/referencia-precio": {
+      "get": {
+        "tags": [
+          "Servicios"
+        ],
+        "summary": "Precio de mercado de la categoría",
+        "description": "Promedio, mínimo y máximo de los precios vigentes de servicios comparables ya publicados en AgroApp. Empieza por la provincia del contratista y amplía al país si no hay con qué comparar.",
+        "responses": {
+          "200": {
+            "description": "Referencia de precio",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": {
+                    "nullable": true
+                  }
                 }
               }
             }

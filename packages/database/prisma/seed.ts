@@ -95,12 +95,12 @@ const USERS: DemoUser[] = [
   {
     email: "contratista@agroapp.dev", password: "Contratista123!", nombre: "Pedro", apellido: "Molina", roles: ["CONTRATISTA"],
     localidad: "Venado Tuerto", domicilio: "Av. Casey 850", telefono: "3462-430000", cuil_cuit: "20-25555666-7",
-    contratista: { descripcion: "Siembra directa y cosecha con equipos John Deere de última generación. Trabajamos en el sur de Santa Fe y norte de Buenos Aires.", anios_experiencia: 15 },
+    contratista: { descripcion: "Siembra directa y cosecha con equipos John Deere de última generación. Trabajamos en el sur de Santa Fe y norte de Buenos Aires.", anios_experiencia: 15, verificado: true },
   },
   {
     email: "contratista2@agroapp.dev", password: "Contratista123!", nombre: "Marta", apellido: "Giménez", roles: ["CONTRATISTA"],
     localidad: "Río Cuarto", domicilio: "Sobremonte 1500", telefono: "358-4600000", cuil_cuit: "27-26666777-8",
-    contratista: { descripcion: "Pulverizaciones terrestres con pulverizadora autopropulsada y fertilización variable.", anios_experiencia: 9 },
+    contratista: { descripcion: "Pulverizaciones terrestres con pulverizadora autopropulsada y fertilización variable.", anios_experiencia: 9, verificado: true },
   },
   {
     email: "contratista3@agroapp.dev", password: "Contratista123!", nombre: "Julián", apellido: "Sosa", roles: ["CONTRATISTA"],
@@ -183,8 +183,19 @@ async function seedUsuarios(localidades: Map<string, bigint>) {
     if (u.roles.includes("CONTRATISTA")) {
       await prisma.contratista_profile.upsert({
         where: { id_user: user.id_user },
-        update: { descripcion: u.contratista?.descripcion, anios_experiencia: u.contratista?.anios_experiencia },
-        create: { id_user: user.id_user, descripcion: u.contratista?.descripcion, anios_experiencia: u.contratista?.anios_experiencia },
+        update: {
+          descripcion: u.contratista?.descripcion,
+          anios_experiencia: u.contratista?.anios_experiencia,
+          verificado: u.contratista?.verificado ?? false,
+          verificado_at: u.contratista?.verificado ? new Date() : null,
+        },
+        create: {
+          id_user: user.id_user,
+          descripcion: u.contratista?.descripcion,
+          anios_experiencia: u.contratista?.anios_experiencia,
+          verificado: u.contratista?.verificado ?? false,
+          verificado_at: u.contratista?.verificado ? new Date() : null,
+        },
       });
     }
   }

@@ -1,14 +1,42 @@
-import { ArrowLeft, Award, BriefcaseBusiness, MapPin } from "lucide-react";
+import { ArrowLeft, Award, BadgeCheck, BriefcaseBusiness, MapPin, ShieldOff } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
-import { contratistas as contratistasApi } from "../api";
+import { useState } from "react";
+import { contratistas as contratistasApi, getApiErrorMessage } from "../api";
+import { useAuth } from "../auth/AuthContext";
+import { useFeedback } from "../components/feedback";
 import { AnimatedPage } from "../components/layout/AppShell";
-import { Alert, Avatar, Card, EmptyState, PageSpinner, Stars } from "../components/ui";
+import { Alert, Avatar, Button, Card, EmptyState, PageSpinner, Stars, VerificadoBadge } from "../components/ui";
 import { fmtDate, fmtMoney, fullName, pluralize, ubicacion } from "../lib/format";
 import { useQuery } from "../lib/useQuery";
 
 export default function ContratistaDetailPage() {
   const { id } = useParams();
+  const { isAdmin } = useAuth();
+  const { toast, confirm } = useFeedback();
   const q = useQuery(() => contratistasApi.get(Number(id)), [id]);
+  const [busy, setBusy] = useState(false);
+
+  const cambiarVerificado = async (verificado: boolean) => {
+    const ok = await confirm({
+      title: verificado ? "Verificar contratista" : "Quitar la verificación",
+      message: verificado
+        ? "Confirmá que revisaste la identidad y los datos fiscales. La insignia queda visible para todos."
+        : "El contratista deja de mostrarse como verificado.",
+      confirmLabel: verificado ? "Verificar" : "Quitar",
+      danger: !verificado,
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      await contratistasApi.verificar(Number(id), verificado);
+      toast.success(verificado ? "Contratista verificado" : "Verificación quitada");
+      q.reload();
+    } catch (e) {
+      toast.error(getApiErrorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   if (q.loading) return <PageSpinner />;
   if (q.error || !q.data) return <div className="mx-auto max-w-3xl p-6"><Alert kind="error">{q.error ?? "Contratista no encontrado"}</Alert></div>;
@@ -23,7 +51,10 @@ export default function ContratistaDetailPage() {
         <div className="relative mt-8 flex flex-col gap-4 sm:flex-row sm:items-end">
           <Avatar name={fullName(c.users)} size="lg" className="ring-4 ring-white dark:ring-stone-900" />
           <div className="flex-1">
-            <h1 className="text-3xl font-extrabold text-stone-900 dark:text-white">{fullName(c.users)}</h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-3xl font-extrabold text-stone-900 dark:text-white">{fullName(c.users)}</h1>
+              <VerificadoBadge verificado={c.verificado} />
+            </div>
             <p className="flex items-center gap-1.5 text-sm text-stone-500"><MapPin className="h-4 w-4" />{ubicacion(c.users.localidad)}</p>
           </div>
           <div className="flex flex-wrap gap-4 text-sm">
@@ -33,6 +64,16 @@ export default function ContratistaDetailPage() {
           </div>
         </div>
         {c.descripcion && <p className="relative mt-5 max-w-3xl text-stone-600 dark:text-stone-300">{c.descripcion}</p>}
+        {isAdmin && (
+          <div className="relative mt-5 flex flex-wrap items-center gap-3 border-t border-stone-200 pt-4 dark:border-stone-800">
+            <p className="text-xs text-stone-500">Administración</p>
+            {c.verificado ? (
+              <Button variant="outline" size="sm" loading={busy} icon={<ShieldOff className="h-4 w-4" />} onClick={() => cambiarVerificado(false)}>Quitar verificación</Button>
+            ) : (
+              <Button size="sm" loading={busy} icon={<BadgeCheck className="h-4 w-4" />} onClick={() => cambiarVerificado(true)}>Marcar como verificado</Button>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_380px]">

@@ -5,7 +5,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { campos as camposApi, categorias as categoriasApi, contratistas as contratistasApi, localidades as localidadesApi, provincias as provinciasApi } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import { AnimatedPage } from "../components/layout/AppShell";
-import { Alert, Avatar, EmptyState, Field, Input, PageHeader, Pagination, Select, SkeletonCard, Stars } from "../components/ui";
+import { Alert, Avatar, EmptyState, Field, Input, PageHeader, Pagination, Select, SkeletonCard, Stars, VerificadoBadge } from "../components/ui";
 import { fmtMoney, fullName, pluralize, ubicacion } from "../lib/format";
 import { useDebounce } from "../lib/useDebounce";
 import { useQuery } from "../lib/useQuery";
@@ -98,7 +98,10 @@ export default function ContratistasPage() {
                   <div className="flex items-center gap-3">
                     <Avatar name={fullName(c.users)} size="lg" />
                     <div className="min-w-0">
-                      <p className="truncate text-lg font-bold">{fullName(c.users)}</p>
+                      <p className="flex items-center gap-1.5 truncate text-lg font-bold">
+                        <span className="truncate">{fullName(c.users)}</span>
+                        <VerificadoBadge verificado={c.verificado} size="sm" className="shrink-0" />
+                      </p>
                       <p className="flex items-center gap-1 truncate text-xs text-stone-500"><MapPin className="h-3 w-3" />{ubicacion(c.users.localidad)}</p>
                     </div>
                   </div>

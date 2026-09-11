@@ -29,6 +29,7 @@ export const contratistaService = {
         ...(q.q ? { OR: [{ nombre: { contains: q.q } }, { apellido: { contains: q.q } }] } : {}),
       },
       ...(q.id_categoria ? { servicio: { some: { activo: true, id_categoria: q.id_categoria } } } : {}),
+      ...(q.verificado ? { verificado: true } : {}),
     });
 
     let result = await contratistaRepo.list(build(id_localidad, id_provincia), ...Object.values(toSkipTake(q)) as [number, number]);
@@ -44,6 +45,13 @@ export const contratistaService = {
       valoracion: stats.get(c.id_user) ?? { promedio: null, cantidad: 0 },
     }));
     return { ...toPage(items, result.total, q), alcance };
+  },
+
+  /** Solo la administración otorga o quita la insignia. */
+  setVerificado: async (id: bigint, verificado: boolean) => {
+    const existe = await contratistaRepo.getById(id);
+    if (!existe) throw notFound("Contratista no encontrado");
+    return contratistaRepo.setVerificado(id, verificado);
   },
 
   get: async (id: bigint) => {

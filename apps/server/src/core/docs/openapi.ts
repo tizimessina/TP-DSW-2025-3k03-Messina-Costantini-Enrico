@@ -14,7 +14,7 @@ import { ProvinciaCreateSchema, ProvinciaQuerySchema, ProvinciaUpdateSchema } fr
 import { LocalidadCreateSchema, LocalidadQuerySchema, LocalidadUpdateSchema } from "../../modules/localidad/localidad.schema.js";
 import { CategoriaServicioCreateSchema, CategoriaServicioQuerySchema, CategoriaServicioUpdateSchema } from "../../modules/categoria-servicio/categoria-servicio.schema.js";
 import { InsumoCreateSchema, InsumoQuerySchema, InsumoUpdateSchema } from "../../modules/insumo/insumo.schema.js";
-import { ContratistaQuerySchema } from "../../modules/contratista/contratista.schema.js";
+import { ContratistaQuerySchema, VerificarSchema } from "../../modules/contratista/contratista.schema.js";
 import { ServicioCreateSchema, ServicioQuerySchema, ServicioUpdateSchema } from "../../modules/servicio/servicio.schema.js";
 import { PrecioCreateSchema, PrecioUpdateSchema } from "../../modules/precio/precio.schema.js";
 import { CampoCreateSchema, CampoQuerySchema, CampoUpdateSchema } from "../../modules/campo/campo.schema.js";
@@ -122,9 +122,11 @@ crud({ tag: "Insumos", base: "/insumos", entity: "insumo (con precio de referenc
 
 route({ tags: ["Contratistas"], method: "get", path: "/contratistas", summary: "Listado público de contratistas", description: "Con `id_campo` filtra por la localidad del campo (cercanía) y, si no hay resultados, por su provincia; `alcance` indica cuál aplicó. Incluye servicios activos con precio vigente, valoración promedio y trabajos completados.", request: { query: ContratistaQuerySchema }, responses: { 200: json(PageOf("Page_Contratistas").extend({ alcance: z.enum(["localidad", "provincia", "todos"]) }), "Listado") } });
 route({ tags: ["Contratistas"], method: "get", path: "/contratistas/{id}", summary: "Perfil público de un contratista con servicios y valoraciones", request: { params: IdParam }, responses: { 200: json(anyObj, "Contratista"), ...errors(404) } });
+route({ tags: ["Contratistas"], method: "put", path: "/contratistas/{id}/verificado", summary: "Otorgar o quitar la insignia de verificado", description: "Solo ADMIN. La insignia indica que se revisaron identidad y datos fiscales; queda registrada la fecha.", roles: ["ADMIN"], request: { params: IdParam, body: json(VerificarSchema, "Estado de la insignia") }, responses: { 200: json(anyObj, "Contratista"), ...errors(404) } });
 
 route({ tags: ["Servicios"], method: "get", path: "/servicios", summary: "Catálogo de servicios activos (paginado, con precio vigente)", request: { query: ServicioQuerySchema }, responses: { 200: json(PageOf("Page_Servicios"), "Listado") } });
 route({ tags: ["Servicios"], method: "get", path: "/servicios/{id}", summary: "Detalle con historial de precios", request: { params: IdParam }, responses: { 200: json(anyObj, "Servicio"), ...errors(404) } });
+route({ tags: ["Servicios"], method: "get", path: "/servicios/{id}/referencia-precio", summary: "Precio de mercado de la categoría", description: "Promedio, mínimo y máximo de los precios vigentes de servicios comparables ya publicados en AgroApp. Empieza por la provincia del contratista y amplía al país si no hay con qué comparar.", responses: { 200: json(anyObj, "Referencia de precio"), ...errors(404) } });
 route({ tags: ["Servicios"], method: "post", path: "/servicios", summary: "Publicar un servicio (CUU)", description: "El servicio pertenece al contratista autenticado. `precio_inicial` crea el precio vigente desde hoy.", roles: ["CONTRATISTA"], request: { body: json(ServicioCreateSchema, "Datos") }, responses: { 201: json(anyObj, "Creado"), ...errors(400) } });
 route({ tags: ["Servicios"], method: "put", path: "/servicios/{id}", summary: "Actualizar servicio (nombre, descripción, categoría, activo)", roles: ["CONTRATISTA", "ADMIN"], request: { params: IdParam, body: json(ServicioUpdateSchema, "Datos") }, responses: { 200: json(anyObj, "Actualizado"), ...errors(400, 404) } });
 route({ tags: ["Servicios"], method: "delete", path: "/servicios/{id}", summary: "Desactivar servicio (baja lógica)", roles: ["CONTRATISTA", "ADMIN"], request: { params: IdParam }, responses: { 200: json(anyObj, "Servicio desactivado"), ...errors(404) } });

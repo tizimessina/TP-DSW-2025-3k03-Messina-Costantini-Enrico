@@ -26,7 +26,10 @@ export const campoService = {
     if (!isAdmin(user) && !esDuenio && !esContratistaDelCampo) throw forbidden("No podés ver campos de otro productor");
     // Un contratista solo ve las solicitudes que le corresponden
     if (!isAdmin(user) && !esDuenio) row.solicitud = row.solicitud.filter((s) => s.id_contratista === user.id_user);
-    return row;
+    // La ficha histórica es del dueño del campo: a un contratista no le interesa
+    // (ni le corresponde) cuánto gastó el productor en total.
+    const resumen = esDuenio || isAdmin(user) ? await campoRepo.resumenHistorico(id) : null;
+    return { ...row, resumen };
   },
 
   create: async (user: AuthUser, dto: CampoCreateDTO) => {
