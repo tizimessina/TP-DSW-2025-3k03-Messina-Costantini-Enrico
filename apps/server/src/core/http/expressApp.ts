@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
+import helmet from 'helmet';
+import { rateLimit } from 'express-rate-limit';
 
 // Routers
 import provinciaRouter from '../../modules/provincia/provincia.router.js';
@@ -24,13 +26,30 @@ import docsRouter from '../docs/docs.router.js';
 
 export function createApp() {
   const app = express();
+  app.disable('x-powered-by');
+  // Detrás del proxy de Render: necesario para que rate-limit vea la IP real y req.protocol sea https
+  app.set('trust proxy', 1);
+  // Headers de seguridad (CSP relajada solo para que Swagger UI cargue sus assets)
+  app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   app.use(
     cors({
       origin: env.CORS_ORIGIN.includes('*') ? true : env.CORS_ORIGIN,
     }),
   );
-  app.use(express.json());
+  app.use(express.json({ limit: '100kb' }));
   if (env.NODE_ENV !== 'test') app.use(morgan('dev'));
+
+  // Límite de intentos de login/registro por IP para frenar fuerza bruta
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: env.NODE_ENV === 'test' ? 1000 : 20,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: { code: 'TOO_MANY_REQUESTS', message: 'Demasiados intentos, probá de nuevo en 15 minutos' },
+  });
+  app.use('/auth/login', authLimiter);
+  app.use('/auth/register', authLimiter);
+
   app.get('/health', (_req, res) => res.json({ ok: true }));
   app.use('/docs', docsRouter);
   app.use('/provincias', provinciaRouter);

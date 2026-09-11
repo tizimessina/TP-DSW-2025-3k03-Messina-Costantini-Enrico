@@ -35,10 +35,20 @@ export function normalizeError(err: any): ApiError {
   }
 
   const status = typeof err?.status === "number" ? err.status : 500;
+  if (status === 500) {
+    // No filtrar mensajes internos (Prisma, stack, etc.) fuera de desarrollo
+    const expose = env.NODE_ENV === "development";
+    return {
+      status,
+      code: "INTERNAL_ERROR",
+      message: expose && err?.message ? err.message : "Error interno del servidor",
+      details: expose ? err?.details : undefined,
+    };
+  }
   return {
     status,
-    code: err?.code ?? (status === 500 ? "INTERNAL_ERROR" : "ERROR"),
-    message: err?.message ?? "Error interno",
+    code: err?.code ?? "ERROR",
+    message: err?.message ?? "Error",
     details: err?.details,
   };
 }

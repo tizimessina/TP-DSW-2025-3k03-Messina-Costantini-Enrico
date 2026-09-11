@@ -18,12 +18,12 @@
     "@types/bcrypt": "^6.0.0",
     "@types/node": "^24.7.2",
     "bcrypt": "^6.0.0",
-    "prisma": "^6.17.1",
+    "prisma": "^6.19.3",
     "tsx": "^4.20.6",
     "typescript": "5.5.4"
   },
   "dependencies": {
-    "@prisma/client": "^6.17.1"
+    "@prisma/client": "^6.19.3"
   },
   "main": "./dist/index.js",
   "exports": {
