@@ -29,6 +29,19 @@
     @apply bg-brand-200 text-brand-900;
   }
 
+  /*
+   * Los items de grid tienen `min-width: auto` por especificación: la pista nunca
+   * se achica por debajo del ancho mínimo de su contenido. Con texto `truncate`
+   * (que es `white-space: nowrap`) ese mínimo es la línea entera, así que una
+   * tarjeta con nombres largos ensancha la columna más que la pantalla y el
+   * contenido se corta o aparece scroll horizontal. En un monitor no se nota
+   * porque la ventana nunca baja de ~500px; en un teléfono de 375px sí.
+   * Cualquier utilidad `min-w-*` de Tailwind sigue ganando por orden de capas.
+   */
+  .grid > * {
+    min-width: 0;
+  }
+
   /* Foco visible y consistente */
   :focus-visible {
     @apply outline-none ring-2 ring-brand-500/60 ring-offset-2 ring-offset-sand-100 dark:ring-offset-stone-950;
