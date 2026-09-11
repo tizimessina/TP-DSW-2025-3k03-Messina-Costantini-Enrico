@@ -1,57 +1,35 @@
 import type { NextFunction, Request, Response } from "express";
+import { CreateSolicitudInputSchema, SolicitudIdSchema, SolicitudQuerySchema, UpdateSolicitudEstadoSchema } from "./solicitud.schema.js";
 import { solicitudService } from "./solicitud.service.js";
-import {
-  CreateSolicitudInputSchema,
-  SolicitudIdSchema,
-  SolicitudQuerySchema,
-  UpdateSolicitudEstadoSchema,
-} from "./solicitud.schema.js";
 
 export const solicitudController = {
-  async list(req: Request, res: Response, next: NextFunction) {
+  list: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const query = SolicitudQuerySchema.parse(req.query);
-      res.json(await solicitudService.list(req.user!, query));
-    } catch (err) {
-      next(err);
-    }
+      res.json(await solicitudService.list(req.user!, SolicitudQuerySchema.parse(req.query)));
+    } catch (e) { next(e); }
   },
-
-  async getById(req: Request, res: Response, next: NextFunction) {
+  getById: async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { id } = SolicitudIdSchema.parse(req.params);
       res.json(await solicitudService.getById(req.user!, id));
-    } catch (err) {
-      next(err);
-    }
+    } catch (e) { next(e); }
   },
-
-  async create(req: Request, res: Response, next: NextFunction) {
+  create: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const parsed = CreateSolicitudInputSchema.parse(req.body);
-      res.status(201).json(await solicitudService.create(req.user!, parsed));
-    } catch (err) {
-      next(err);
-    }
+      res.status(201).json(await solicitudService.create(req.user!, CreateSolicitudInputSchema.parse(req.body)));
+    } catch (e) { next(e); }
   },
-
-  async updateEstado(req: Request, res: Response, next: NextFunction) {
+  updateEstado: async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { id } = SolicitudIdSchema.parse(req.params);
-      const parsed = UpdateSolicitudEstadoSchema.parse(req.body);
-      res.json(await solicitudService.updateEstado(req.user!, id, parsed));
-    } catch (err) {
-      next(err);
-    }
+      res.json(await solicitudService.updateEstado(req.user!, id, UpdateSolicitudEstadoSchema.parse(req.body)));
+    } catch (e) { next(e); }
   },
-
-  async delete(req: Request, res: Response, next: NextFunction) {
+  delete: async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { id } = SolicitudIdSchema.parse(req.params);
       await solicitudService.delete(req.user!, id);
       res.status(204).send();
-    } catch (err) {
-      next(err);
-    }
+    } catch (e) { next(e); }
   },
 };

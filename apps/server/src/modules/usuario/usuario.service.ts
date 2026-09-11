@@ -1,143 +1,106 @@
 import bcrypt from 'bcrypt';
-import type { UsuarioCreateDto, UsuarioUpdateDto } from './usuario.schema.js';
-import { usuarioRepo } from './usuario.repository.js';
-import { prisma } from '@repo/db';
+import { BUSINESS_ROLES, type RoleName } from '../../core/auth/types.js';
+import { badRequest, conflict, notFound, translatePrisma } from '../../core/errors/errors.js';
+import { toPage } from '../../core/http/pagination.js';
+import type { UsuarioCreateDto, UsuarioQuery, UsuarioUpdateDto } from './usuario.schema.js';
+import { usuarioRepo, type UserRow } from './usuario.repository.js';
 
-/** Usuario tal como sale por la API: sin `password_hash` y con los roles aplanados a nombres. */
-export type PublicUser = {
-  id_user: bigint;
-  email: string;
-  nombre: string;
-  apellido: string;
-  cuil_cuit: string | null;
-  fecha_nac: Date | null;
-  domicilio: string | null;
-  id_localidad: bigint | null;
-  localidad: unknown | null;
-  roles: string[];
-  created_at?: Date;
-};
+/** Usuario tal como sale por la API: sin `password_hash`, roles aplanados y perfiles embebidos. */
+export type PublicUser = ReturnType<typeof toPublicUser>;
 
-export function toPublicUser(u: any): PublicUser {
-  const { password_hash: _omit, user_roles, ...rest } = u;
+export function toPublicUser(u: UserRow) {
+  const { password_hash: _omit, user_roles, productor_profile, contratista_profile, ...rest } = u;
   return {
     ...rest,
-    roles: (user_roles ?? []).map((ur: any) => ur.roles?.name).filter(Boolean),
+    roles: user_roles.map((ur) => ur.roles.name as RoleName),
+    productor: productor_profile ? { razon_social: productor_profile.razon_social } : null,
+    contratista: contratista_profile
+      ? { descripcion: contratista_profile.descripcion, anios_experiencia: contratista_profile.anios_experiencia }
+      : null,
   };
 }
 
-async function rolesByNames(names: string[]): Promise<number[]> {
-  if (!names.length) return [];
-  const rows = await prisma.roles.findMany({ where: { name: { in: names } } });
-  const missing = names.filter(n => !rows.some(r => r.name === n));
-  if (missing.length) {
-    throw { status: 400, code: 'ROLE_INVALID', message: `Roles inválidos: ${missing.join(', ')}` };
+const DUP_EMAIL = conflict('DUPLICATE', 'Ya existe un usuario con ese email o CUIT');
+const FK_LOC = badRequest('FK_INVALID', 'La localidad no existe');
+
+/** Un usuario es productor o contratista, nunca ambos. */
+export function assertRolesValidos(roles: RoleName[]) {
+  const business = roles.filter((r) => BUSINESS_ROLES.includes(r));
+  if (business.length > 1) {
+    throw badRequest('ROLES_EXCLUYENTES', 'Un usuario no puede ser productor y contratista a la vez');
   }
-  return rows.map(r => Number(r.id_role));
 }
 
-/** Crea o elimina los perfiles 1:1 (cliente/prestamista/admin) según los roles del usuario. */
-async function syncProfiles(id_user: bigint, roleNames: string[]) {
-  const ops: Array<[string, any]> = [
-    ['CLIENTE', prisma.cliente_profile],
-    ['PRESTAMISTA', prisma.prestamista_profile],
-    ['ADMIN', prisma.admin_profile],
-  ];
-  for (const [role, model] of ops) {
-    if (roleNames.includes(role)) {
-      await model.upsert({ where: { id_user }, update: {}, create: { id_user } });
-    } else {
-      await model.deleteMany({ where: { id_user } });
-    }
-  }
+async function resolveRoles(names: RoleName[]) {
+  assertRolesValidos(names);
+  const map = await usuarioRepo.roleIdsByNames(names);
+  const missing = names.filter((n) => !map.has(n));
+  if (missing.length) throw badRequest('ROLE_INVALID', `Roles inválidos: ${missing.join(', ')}`);
+  return { names, ids: names.map((n) => map.get(n)!) };
 }
 
 export const usuarioService = {
-  list: async (q?: string, id_localidad?: bigint, roleName?: string): Promise<PublicUser[]> =>
-    (await usuarioRepo.list(q, id_localidad, roleName)).map(toPublicUser),
+  list: async (q: UsuarioQuery) => {
+    const { items, total } = await usuarioRepo.list(q);
+    return toPage(items.map(toPublicUser), total, q);
+  },
 
-  get: async (id: bigint): Promise<PublicUser> => {
+  get: async (id: bigint) => {
     const u = await usuarioRepo.getById(id);
-    if (!u) throw { status: 404, code: 'NOT_FOUND', message: 'Usuario no encontrado' };
+    if (!u) throw notFound('Usuario no encontrado');
     return toPublicUser(u);
   },
 
-  create: async (dto: UsuarioCreateDto): Promise<PublicUser> => {
-    try {
-      const password_hash = await bcrypt.hash(dto.password, 10);
-      const roleNames = dto.roles ?? [];
-      const roleIds = await rolesByNames(roleNames);
-
-      const createdUser = await usuarioRepo.create({
-        email: dto.email.toLowerCase().trim(),
-        password_hash,
-        nombre: dto.nombre.trim(),
-        apellido: dto.apellido.trim(),
-        cuil_cuit: dto.cuil_cuit?.trim() ?? null,
-        fecha_nac: dto.fecha_nac ? new Date(dto.fecha_nac) : null,
-        domicilio: dto.domicilio?.trim() ?? null,
-        id_localidad: dto.id_localidad ?? null,
-        roleIds,
-      });
-
-      await syncProfiles(createdUser.id_user, roleNames);
-      return toPublicUser(createdUser);
-    } catch (e: any) {
-      if (e.code === 'P2002') {
-        throw { status: 409, code: 'DUPLICATE', message: 'Email ya registrado' };
-      }
-      if (e.code === 'P2003') {
-        throw { status: 400, code: 'FK_INVALID', message: 'Localidad inexistente' };
-      }
-      throw e;
-    }
+  create: async (dto: UsuarioCreateDto) => {
+    const roles = await resolveRoles(dto.roles);
+    const password_hash = await bcrypt.hash(dto.password, 10);
+    const { email, password: _p, roles: _r, razon_social, descripcion, anios_experiencia, ...persona } = dto;
+    const row = await usuarioRepo
+      .save(null, { ...persona, email, password_hash }, roles, { razon_social, descripcion, anios_experiencia })
+      .catch((e) => translatePrisma(e, { P2002: DUP_EMAIL, P2003: FK_LOC }));
+    return toPublicUser(row);
   },
 
-  update: async (id: bigint, dto: UsuarioUpdateDto): Promise<PublicUser> => {
-    await usuarioService.get(id); // asegura 404 si no existe
+  update: async (id: bigint, dto: UsuarioUpdateDto) => {
+    const current = await usuarioRepo.getById(id);
+    if (!current) throw notFound('Usuario no encontrado');
+    const currentRoles = current.user_roles.map((r) => r.roles.name as RoleName);
 
-    try {
-      const password_hash = dto.password ? await bcrypt.hash(dto.password, 10) : undefined;
-      const replaceRoleIds = dto.roles ? await rolesByNames(dto.roles) : undefined;
-
-      const updated = await usuarioRepo.update(id, {
-        email: dto.email?.toLowerCase().trim(),
-        password_hash,
-        nombre: dto.nombre?.trim(),
-        apellido: dto.apellido?.trim(),
-        cuil_cuit: dto.cuil_cuit?.trim() ?? (dto.cuil_cuit === null ? null : undefined),
-        fecha_nac: dto.fecha_nac ? new Date(dto.fecha_nac) : (dto.fecha_nac === null ? null : undefined),
-        domicilio: dto.domicilio?.trim() ?? (dto.domicilio === null ? null : undefined),
-        id_localidad: dto.id_localidad ?? (dto.id_localidad === null ? null : undefined),
-        replaceRoleIds,
-      });
-
-      if (dto.roles) await syncProfiles(id, dto.roles);
-      return toPublicUser(updated);
-    } catch (e: any) {
-      if (e.code === 'P2002') {
-        throw { status: 409, code: 'DUPLICATE', message: 'Email ya registrado' };
+    let roles: Awaited<ReturnType<typeof resolveRoles>> | undefined;
+    if (dto.roles) {
+      roles = await resolveRoles(dto.roles);
+      // Guard de último admin
+      if (currentRoles.includes('ADMIN') && !dto.roles.includes('ADMIN') && (await usuarioRepo.countAdmins()) <= 1) {
+        throw conflict('LAST_ADMIN', 'No se puede quitar el rol ADMIN al único administrador');
       }
-      if (e.code === 'P2003') {
-        throw { status: 400, code: 'FK_INVALID', message: 'Localidad inexistente' };
+      // No se puede quitar un rol de negocio con datos asociados
+      const deps = await usuarioRepo.countDependencies(id);
+      if (currentRoles.includes('PRODUCTOR') && !dto.roles.includes('PRODUCTOR') && deps.campos + deps.solicitudes > 0) {
+        throw conflict('IN_USE', 'No se puede quitar el rol PRODUCTOR: tiene campos o solicitudes');
       }
-      throw e;
+      if (currentRoles.includes('CONTRATISTA') && !dto.roles.includes('CONTRATISTA') && deps.servicios + deps.solicitudes > 0) {
+        throw conflict('IN_USE', 'No se puede quitar el rol CONTRATISTA: tiene servicios o solicitudes');
+      }
     }
+
+    const password_hash = dto.password ? await bcrypt.hash(dto.password, 10) : undefined;
+    const { email, password: _p, roles: _r, razon_social, descripcion, anios_experiencia, ...persona } = dto;
+    const row = await usuarioRepo
+      .save(id, { ...persona, email, password_hash }, roles, { razon_social, descripcion, anios_experiencia })
+      .catch((e) => translatePrisma(e, { P2002: DUP_EMAIL, P2003: FK_LOC }));
+    return toPublicUser(row);
   },
 
   remove: async (id: bigint) => {
-    await usuarioService.get(id);
-    try {
-      return await usuarioRepo.remove(id);
-    } catch (e: any) {
-      if (e.code === 'P2003') {
-        throw {
-          status: 409,
-          code: 'IN_USE',
-          message: 'No se puede eliminar: el usuario tiene servicios, campos o solicitudes asociadas',
-        };
-      }
-      throw e;
+    const u = await usuarioRepo.getById(id);
+    if (!u) throw notFound('Usuario no encontrado');
+    if (u.user_roles.some((r) => r.roles.name === 'ADMIN') && (await usuarioRepo.countAdmins()) <= 1) {
+      throw conflict('LAST_ADMIN', 'No se puede eliminar al único administrador');
     }
+    const deps = await usuarioRepo.countDependencies(id);
+    if (deps.campos + deps.servicios + deps.solicitudes > 0) {
+      throw conflict('IN_USE', 'No se puede eliminar: el usuario tiene campos, servicios o solicitudes asociadas');
+    }
+    await usuarioRepo.remove(id);
   },
 };

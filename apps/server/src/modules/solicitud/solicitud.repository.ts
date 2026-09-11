@@ -1,91 +1,63 @@
-import { prisma } from '@repo/db';
-import { publicUserSelect } from '../../core/db/selects.js';
+import { prisma, type Prisma } from '@repo/db';
+import { contactUserSelect, publicUserSelect } from '../../core/db/selects.js';
 import type { SolicitudEstado } from './solicitud.schema.js';
 
+/** Listado: contrapartes sin datos de contacto. */
 const listInclude = {
   servicio: { select: { id_servicio: true, nombre: true, categoria: true } },
-  campo: { select: { id_campo: true, coordenadas: true, hectareas: true } },
-  cliente_profile: { include: { users: { select: publicUserSelect } } },
-  prestamista_profile: { include: { users: { select: publicUserSelect } } },
-};
+  campo: { select: { id_campo: true, nombre: true, hectareas: true, localidad: { include: { provincia: true } } } },
+  productor_profile: { include: { users: { select: publicUserSelect } } },
+  contratista_profile: { include: { users: { select: publicUserSelect } } },
+  valoracion: { select: { puntaje: true } },
+} satisfies Prisma.solicitudInclude;
 
+/** Detalle: las dos partes de la solicitud ven el contacto de la otra. */
 const detailInclude = {
-  servicio: {
-    include: {
-      categoria: true,
-      prestamista_profile: { include: { users: { select: publicUserSelect } } },
-    },
-  },
-  campo: true,
-  cliente_profile: { include: { users: { select: publicUserSelect } } },
-  prestamista_profile: { include: { users: { select: publicUserSelect } } },
+  servicio: { include: { categoria: true } },
+  campo: { include: { localidad: { include: { provincia: true } } } },
+  productor_profile: { include: { users: { select: contactUserSelect } } },
+  contratista_profile: { include: { users: { select: contactUserSelect } } },
   solicitud_insumo: { include: { insumo: true } },
-};
+  valoracion: true,
+} satisfies Prisma.solicitudInclude;
 
 export type SolicitudCreateData = {
   id_servicio: bigint;
-  id_cliente: bigint;
-  id_prestamista: bigint;
+  id_productor: bigint;
+  id_contratista: bigint;
   id_campo: bigint;
   hectareas_trabajadas: number;
+  precio_hectarea: number;
   precio_servicio: number;
   costo_insumos: number;
   precio_total: number;
   fecha_inicio: Date | null;
   fecha_fin: Date | null;
-  insumos: { id_insumo: bigint; cantidad: number; precio_unit: number; proveedor: 'CLIENTE' | 'PRESTAMISTA' }[];
+  observaciones: string | null;
+  insumos: { id_insumo: bigint; cantidad: number; precio_unit: number; proveedor: 'PRODUCTOR' | 'CONTRATISTA' }[];
 };
 
 export const solicitudRepo = {
-  list: (where: { estado?: SolicitudEstado; id_cliente?: bigint; id_prestamista?: bigint }) =>
-    prisma.solicitud.findMany({
-      where: {
-        ...(where.estado ? { estado: where.estado } : {}),
-        ...(where.id_cliente ? { id_cliente: where.id_cliente } : {}),
-        ...(where.id_prestamista ? { id_prestamista: where.id_prestamista } : {}),
-      },
-      orderBy: { fecha_solicitud: 'desc' },
-      include: listInclude,
-    }),
+  list: async (where: Prisma.solicitudWhereInput, skip: number, take: number) => {
+    const [items, total] = await Promise.all([
+      prisma.solicitud.findMany({ where, skip, take, orderBy: { fecha_solicitud: 'desc' }, include: listInclude }),
+      prisma.solicitud.count({ where }),
+    ]);
+    return { items, total };
+  },
 
-  getById: (id: bigint) =>
-    prisma.solicitud.findUnique({
-      where: { id_solicitud: id },
-      include: detailInclude,
-    }),
+  getById: (id: bigint) => prisma.solicitud.findUnique({ where: { id_solicitud: id }, include: detailInclude }),
 
-  create: (data: SolicitudCreateData) =>
-    prisma.solicitud.create({
-      data: {
-        id_servicio: data.id_servicio,
-        id_cliente: data.id_cliente,
-        id_prestamista: data.id_prestamista,
-        id_campo: data.id_campo,
-        hectareas_trabajadas: data.hectareas_trabajadas,
-        precio_servicio: data.precio_servicio,
-        costo_insumos: data.costo_insumos,
-        precio_total: data.precio_total,
-        estado: 'pendiente',
-        fecha_inicio: data.fecha_inicio,
-        fecha_fin: data.fecha_fin,
-        solicitud_insumo: { create: data.insumos },
-      },
+  create: (data: SolicitudCreateData) => {
+    const { insumos, ...rest } = data;
+    return prisma.solicitud.create({
+      data: { ...rest, estado: 'pendiente', solicitud_insumo: { create: insumos } },
       include: detailInclude,
-    }),
+    });
+  },
 
-  updateEstado: (
-    id: bigint,
-    data: { estado: SolicitudEstado; fecha_inicio?: Date | null; fecha_fin?: Date | null },
-  ) =>
-    prisma.solicitud.update({
-      where: { id_solicitud: id },
-      data: {
-        estado: data.estado,
-        ...(data.fecha_inicio !== undefined ? { fecha_inicio: data.fecha_inicio } : {}),
-        ...(data.fecha_fin !== undefined ? { fecha_fin: data.fecha_fin } : {}),
-      },
-      include: detailInclude,
-    }),
+  updateEstado: (id: bigint, data: { estado: SolicitudEstado; fecha_inicio?: Date | null; fecha_fin?: Date | null; motivo?: string | null }) =>
+    prisma.solicitud.update({ where: { id_solicitud: id }, data, include: detailInclude }),
 
   delete: (id: bigint) => prisma.solicitud.delete({ where: { id_solicitud: id } }),
 };

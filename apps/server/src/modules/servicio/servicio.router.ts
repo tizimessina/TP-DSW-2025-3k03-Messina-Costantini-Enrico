@@ -1,12 +1,12 @@
 import { Router } from "express";
-import { requireAuth, requireRole } from "../../core/auth/middleware.js";
+import { optionalAuth, requireAuth, requireRole } from "../../core/auth/middleware.js";
 import { ServicioController } from "./servicio.controller.js";
 
 export const servicioRouter = Router();
-const prestamistaOrAdmin = [requireAuth, requireRole("PRESTAMISTA", "ADMIN")];
+const contratistaOrAdmin = [requireAuth, requireRole("CONTRATISTA", "ADMIN")];
 
-servicioRouter.get("/", ServicioController.list);
-servicioRouter.get("/:id", ServicioController.get);
-servicioRouter.post("/", prestamistaOrAdmin, ServicioController.create);
-servicioRouter.put("/:id", prestamistaOrAdmin, ServicioController.update);
-servicioRouter.delete("/:id", prestamistaOrAdmin, ServicioController.remove);
+servicioRouter.get("/", optionalAuth, ServicioController.list);
+servicioRouter.get("/:id", optionalAuth, ServicioController.get);
+servicioRouter.post("/", requireAuth, requireRole("CONTRATISTA"), ServicioController.create);
+servicioRouter.put("/:id", contratistaOrAdmin, ServicioController.update);
+servicioRouter.delete("/:id", contratistaOrAdmin, ServicioController.remove);

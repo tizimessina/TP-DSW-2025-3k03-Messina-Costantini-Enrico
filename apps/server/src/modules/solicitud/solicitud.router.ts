@@ -2,14 +2,13 @@ import { Router } from "express";
 import { requireAuth, requireRole } from "../../core/auth/middleware.js";
 import { solicitudController } from "./solicitud.controller.js";
 
-const solicitudRouter = Router();
+const r = Router();
+r.use(requireAuth);
 
-solicitudRouter.use(requireAuth);
+r.get("/", solicitudController.list);
+r.get("/:id", solicitudController.getById);
+r.post("/", requireRole("PRODUCTOR"), solicitudController.create);
+r.patch("/:id/estado", requireRole("PRODUCTOR", "CONTRATISTA", "ADMIN"), solicitudController.updateEstado);
+r.delete("/:id", requireRole("ADMIN"), solicitudController.delete);
 
-solicitudRouter.get("/", solicitudController.list);
-solicitudRouter.get("/:id", solicitudController.getById);
-solicitudRouter.post("/", requireRole("CLIENTE"), solicitudController.create);
-solicitudRouter.patch("/:id/estado", requireRole("PRESTAMISTA", "ADMIN"), solicitudController.updateEstado);
-solicitudRouter.delete("/:id", requireRole("CLIENTE", "ADMIN"), solicitudController.delete);
-
-export default solicitudRouter;
+export default r;

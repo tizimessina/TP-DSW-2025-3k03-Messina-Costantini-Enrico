@@ -1,29 +1,16 @@
 import jwt, { type SignOptions } from "jsonwebtoken";
 import { env } from "../config/env.js";
-import type { AuthUser, RoleName } from "./types.js";
 
-export type JwtPayload = {
-  sub: string; // id_user como string (BigInt no es serializable en JSON)
-  email: string;
-  roles: RoleName[];
-};
+/** El token solo identifica al usuario; los roles se leen de la DB en cada request. */
+export type JwtPayload = { sub: string };
 
-export function signToken(user: AuthUser): string {
-  const payload: JwtPayload = {
-    sub: user.id_user.toString(),
-    email: user.email,
-    roles: user.roles,
-  };
-  return jwt.sign(payload, env.JWT_SECRET, {
-    expiresIn: env.JWT_EXPIRES_IN as SignOptions["expiresIn"],
-  });
+export function signToken(id_user: bigint): string {
+  const payload: JwtPayload = { sub: id_user.toString() };
+  return jwt.sign(payload, env.JWT_SECRET, { expiresIn: env.JWT_EXPIRES_IN as SignOptions["expiresIn"] });
 }
 
-export function verifyToken(token: string): AuthUser {
+export function verifyToken(token: string): bigint {
   const decoded = jwt.verify(token, env.JWT_SECRET) as JwtPayload;
-  return {
-    id_user: BigInt(decoded.sub),
-    email: decoded.email,
-    roles: decoded.roles ?? [],
-  };
+  if (!decoded?.sub || !/^\d+$/.test(decoded.sub)) throw new Error("Token sin subject válido");
+  return BigInt(decoded.sub);
 }

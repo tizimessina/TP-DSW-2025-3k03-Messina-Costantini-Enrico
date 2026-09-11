@@ -1,31 +1,31 @@
 import { z } from "zod";
+import { PasswordSchema, PersonaSchema } from "../usuario/usuario.schema.js";
 
 export const LoginSchema = z.object({
-  email: z.string().email(),
+  email: z.string().trim().toLowerCase().email(),
   password: z.string().min(1),
 });
 
-/** Registro público: solo se puede elegir CLIENTE o PRESTAMISTA (ADMIN lo asigna otro admin). */
+/** Registro público: solo PRODUCTOR o CONTRATISTA (ADMIN lo asigna otro admin). */
 export const RegisterSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
-  nombre: z.string().min(1).max(100),
-  apellido: z.string().min(1).max(100),
-  rol: z.enum(["CLIENTE", "PRESTAMISTA"]),
+  email: z.string().trim().toLowerCase().email(),
+  password: PasswordSchema,
+  nombre: z.string().trim().min(1).max(100),
+  apellido: z.string().trim().min(1).max(100),
+  rol: z.enum(["PRODUCTOR", "CONTRATISTA"]),
   id_localidad: z.coerce.bigint().positive().optional().nullable(),
+  telefono: z.string().trim().min(6).max(30).optional().nullable(),
 });
 
-/** Edición del propio perfil: sin roles ni email (eso lo maneja ADMIN). */
-export const UpdateMeSchema = z.object({
-  nombre: z.string().min(1).max(100).optional(),
-  apellido: z.string().min(1).max(100).optional(),
-  password: z.string().min(6).optional(),
-  cuil_cuit: z.string().max(20).optional().nullable(),
-  fecha_nac: z.coerce.date().optional().nullable(),
-  domicilio: z.string().max(255).optional().nullable(),
-  id_localidad: z.coerce.bigint().positive().optional().nullable(),
+/** Edición del propio perfil: sin roles ni email. */
+export const UpdateMeSchema = PersonaSchema.partial();
+
+export const ChangePasswordSchema = z.object({
+  password_actual: z.string().min(1),
+  password_nueva: PasswordSchema,
 });
 
 export type LoginDto = z.infer<typeof LoginSchema>;
 export type RegisterDto = z.infer<typeof RegisterSchema>;
 export type UpdateMeDto = z.infer<typeof UpdateMeSchema>;
+export type ChangePasswordDto = z.infer<typeof ChangePasswordSchema>;

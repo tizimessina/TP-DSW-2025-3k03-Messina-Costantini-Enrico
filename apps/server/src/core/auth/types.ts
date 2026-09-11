@@ -1,7 +1,10 @@
-export const ROLE_NAMES = ["ADMIN", "CLIENTE", "PRESTAMISTA"] as const;
+export const ROLE_NAMES = ["ADMIN", "PRODUCTOR", "CONTRATISTA"] as const;
 export type RoleName = (typeof ROLE_NAMES)[number];
 
-/** Usuario autenticado que viaja en `req.user` una vez validado el JWT. */
+/** Roles de negocio mutuamente excluyentes (un usuario es productor o contratista, no ambos). */
+export const BUSINESS_ROLES: RoleName[] = ["PRODUCTOR", "CONTRATISTA"];
+
+/** Usuario autenticado que viaja en `req.user` (roles revalidados contra la DB en cada request). */
 export type AuthUser = {
   id_user: bigint;
   email: string;
