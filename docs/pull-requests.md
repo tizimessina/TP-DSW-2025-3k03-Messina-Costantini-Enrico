@@ -24,6 +24,7 @@ Repositorio (monorepo fullstack): https://github.com/JereC4/TP-DSW-2025-3k03-Mes
 | pendiente | `feat/historial-eventos` | Registro de transiciones de la solicitud y línea de tiempo real | Tiziano |
 | pendiente | `feat/notificaciones` | Avisos dentro de la aplicación, con campana y contador | Tiziano |
 | pendiente | `feat/mejoras-demo` | Insignia de verificado, ficha histórica del campo, precio de mercado y gráfico del panel | Tiziano |
-| pendiente | `docs/gestion` | Minutas, tracking, GitHub Projects | Jeremías |
+| pendiente | `feat/cercania-distancia` | Cercanía por distancia real entre el campo y el contratista | Tiziano |
+| pendiente | `docs/gestion` | Registro de coordinación por hito y seguimiento de las 35 tareas | Tiziano |
 
 Los números de los PR marcados como pendientes se completan al abrirlos. El orden de merge de los últimos es: `fix/responsive-movil`, `fix/ci-pnpm`, `chore/lint-auditoria`, `chore/docker-compose`, `feat/historial-eventos`, `feat/notificaciones` y `feat/mejoras-demo`, que van apilados en ese orden. El desarrollo previo (octubre y noviembre de 2025) se hizo con commits directos a `main` de ambos integrantes; ver `git log`.

@@ -1,12 +1,13 @@
 # Pendientes y próximos pasos
 
-Estado al 2026-09-11. Lo que falta para cerrar la entrega, en orden.
+Estado al 2026-09-12. Lo que falta para cerrar la entrega, en orden.
 
 ## Para la defensa (obligatorio)
 
-- [ ] **Minutas** en `docs/minutas/` (una por reunión: fecha, presentes, temas, decisiones, próximos pasos) y **`docs/tracking.md`** con el link al tablero de GitHub Projects y la metodología. Reconstruir los hitos pasados desde `git log --date=short --format='%ad %an %s'`: 2025-04 propuesta, 2025-10/11 primer desarrollo, 2026-09 rediseño completo.
+- [x] **Registro de coordinación** en [`minutas/`](minutas/), una entrada por hito reconstruida del historial del repositorio, y **[`tracking.md`](tracking.md)** con la metodología y el estado de las 35 tareas.
+- [ ] Crear el tablero en GitHub Projects siguiendo los pasos de [`tracking.md`](tracking.md) y pegar ahí el enlace. Las tarjetas están listas para copiar.
 - [ ] **Video** siguiendo [video-guion.md](video-guion.md); link en [video.md](video.md).
-- [ ] Completar los números de PR en [pull-requests.md](pull-requests.md) a medida que se abren.
+- [ ] Completar los números de PR del #21 en adelante en [pull-requests.md](pull-requests.md) y en [tracking.md](tracking.md) a medida que se abren.
 - [ ] Enviar el formulario de la cátedra con: repo, `docs/README.md`, video, links de deploy, credenciales y contacto.
 
 ## Después de la defensa

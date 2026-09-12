@@ -15,7 +15,7 @@ Punto de entrada de la documentación exigida por la cátedra. Todo en Markdown 
 | Auditoría de coherencia del negocio: los 53 hallazgos y cómo se resolvieron | [auditoria.md](auditoria.md) |
 | Links a los PR | [pull-requests.md](pull-requests.md) |
 | Instrucciones de instalación y ejecución | [instalacion.md](instalacion.md) |
-| Minutas de reunión y avance | [minutas/](minutas/) |
+| Registro de coordinación y avance por hito | [minutas/](minutas/) |
 | Tracking de features, bugs e issues | [tracking.md](tracking.md) |
 | Documentación de la API (OpenAPI + Swagger UI) | [api/README.md](api/README.md) |
 | Evidencia de ejecución de tests automáticos | [tests/evidencia.md](tests/evidencia.md) |
