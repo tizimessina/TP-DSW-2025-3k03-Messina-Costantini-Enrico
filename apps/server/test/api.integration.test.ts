@@ -19,7 +19,12 @@ const auth = (t: string) => ({ Authorization: `Bearer ${t}` });
 
 let productor: string, contratista: string, admin: string;
 let campoId: number, servicioId: number, solicitudId: number, solicitud2Id: number;
-const created: { servicios: number[]; campos: number[]; solicitudes: number[] } = { servicios: [], campos: [], solicitudes: [] };
+const created: { servicios: number[]; campos: number[]; solicitudes: number[]; localidades: number[] } = {
+  servicios: [],
+  campos: [],
+  solicitudes: [],
+  localidades: [],
+};
 
 beforeAll(async () => {
   productor = await login("productor@agroapp.dev", "Productor123!");
@@ -31,6 +36,7 @@ afterAll(async () => {
   await prisma.solicitud.deleteMany({ where: { id_solicitud: { in: created.solicitudes.map(BigInt) } } });
   await prisma.campo.deleteMany({ where: { id_campo: { in: created.campos.map(BigInt) } } });
   await prisma.servicio.deleteMany({ where: { id_servicio: { in: created.servicios.map(BigInt) } } });
+  await prisma.localidad.deleteMany({ where: { id_localidad: { in: created.localidades.map(BigInt) } } });
   await prisma.$disconnect();
 });
 
@@ -130,21 +136,39 @@ describe("cercanía", () => {
   });
 
   it("amplía el radio cuando no hay nadie tan cerca", async () => {
-    const campo = await campoDelSeed();
-    const res = await request(app).get("/contratistas").query({ id_campo: campo.id_campo, radio_km: 50 });
-    expect(res.body.alcance).toBe("radio");
-    // A 50 km solo está el de Pergamino; con 25 km no habría nadie y se ampliaría.
-    const chico = await request(app).get("/contratistas").query({ id_campo: campo.id_campo, radio_km: 1 });
-    expect(chico.body.cercania.ampliado).toBe(true);
-    expect(chico.body.cercania.radio_aplicado_km).toBeGreaterThan(1);
-  });
-
-  it("un campo sin coordenadas cae a la búsqueda por localidad y lo dice", async () => {
+    // Campo a unos 57 km al sur de Pergamino: con 25 y 50 km no hay nadie, con 100 aparece Sosa.
     const locs = await request(app).get("/localidades");
+    const pergamino = locs.body.find((l: any) => l.nombre === "Pergamino");
     const alta = await request(app)
       .post("/campos")
       .set(auth(productor))
-      .send({ nombre: "Lote sin ubicación", id_localidad: locs.body[0].id_localidad, hectareas: 30 });
+      .send({ nombre: "Lote alejado", id_localidad: pergamino.id_localidad, hectareas: 40, latitud: -34.4, longitud: -60.5739 });
+    expect(alta.status).toBe(201);
+    created.campos.push(alta.body.id_campo);
+
+    const res = await request(app).get("/contratistas").query({ id_campo: alta.body.id_campo, radio_km: 25 });
+    expect(res.body.alcance).toBe("radio");
+    expect(res.body.cercania.ampliado).toBe(true);
+    expect(res.body.cercania.radio_km).toBe(25);
+    expect(res.body.cercania.radio_aplicado_km).toBe(100);
+    expect(res.body.items[0].users.apellido).toBe("Sosa");
+    expect(res.body.items.every((i: any) => i.distancia_km <= 100)).toBe(true);
+  });
+
+  it("un campo sin coordenadas cae a la búsqueda por localidad y lo dice", async () => {
+    // Las localidades del seed ya tienen centro, así que hace falta una que no lo tenga.
+    const provincias = await request(app).get("/provincias");
+    const loc = await request(app)
+      .post("/localidades")
+      .set(auth(admin))
+      .send({ id_provincia: provincias.body[0].id_provincia, nombre: `Sin centro ${Date.now()}` });
+    expect(loc.status).toBe(201);
+    created.localidades.push(loc.body.id_localidad);
+
+    const alta = await request(app)
+      .post("/campos")
+      .set(auth(productor))
+      .send({ nombre: "Lote sin ubicación", id_localidad: loc.body.id_localidad, hectareas: 30 });
     expect(alta.status).toBe(201);
     created.campos.push(alta.body.id_campo);
 
