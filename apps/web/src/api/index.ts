@@ -3,7 +3,7 @@
  */
 import { api } from "./base";
 import type {
-  Campo, Categoria, Contratista, Insumo, Localidad, Notificacion, Page, Precio, Provincia, ReferenciaPrecio, Resumen, RoleName,
+  Campo, Categoria, Cercania, Contratista, Insumo, Localidad, Notificacion, Page, Precio, Provincia, ReferenciaPrecio, Resumen, RoleName,
   Servicio, Solicitud, SolicitudEstado, SolicitudResumen, Usuario, Valoracion, InsumoProveedor,
 } from "./types";
 
@@ -16,6 +16,8 @@ export interface RegisterPayload { email: string; password: string; nombre: stri
 export interface UpdateMePayload {
   nombre?: string; apellido?: string; cuil_cuit?: string | null; telefono?: string | null; fecha_nac?: string | null; domicilio?: string | null;
   id_localidad?: number | null; razon_social?: string | null; descripcion?: string | null; anios_experiencia?: number | null;
+  /** Base de operaciones del contratista, para calcular distancias. */
+  latitud?: number | null; longitud?: number | null;
 }
 export const auth = {
   login: async (email: string, password: string) => (await api.post<AuthResponse>("/auth/login", { email, password })).data,
@@ -34,7 +36,7 @@ export const provincias = {
   remove: async (id: number) => { await api.delete(`/provincias/${id}`); },
 };
 
-export type LocalidadInput = { id_provincia: number; nombre: string; codigo_postal?: string | null };
+export type LocalidadInput = { id_provincia: number; nombre: string; codigo_postal?: string | null; latitud?: number | null; longitud?: number | null };
 export const localidades = {
   list: async (params?: { q?: string; id_provincia?: number }) => (await api.get<Localidad[]>("/localidades", { params })).data,
   create: async (data: LocalidadInput) => (await api.post<Localidad>("/localidades", data)).data,
@@ -72,9 +74,10 @@ export const usuarios = {
 };
 
 /* ---------- Contratistas (público) ---------- */
-export type ContratistaQuery = { q?: string; id_localidad?: number; id_provincia?: number; id_campo?: number; id_categoria?: number; verificado?: boolean; page?: number; pageSize?: number };
+export type ContratistaQuery = { q?: string; id_localidad?: number; id_provincia?: number; id_campo?: number; id_categoria?: number; verificado?: boolean; radio_km?: number; orden?: "distancia" | "apellido"; page?: number; pageSize?: number };
 export const contratistas = {
-  list: async (params?: ContratistaQuery) => (await api.get<Page<Contratista> & { alcance: "localidad" | "provincia" | "todos" }>("/contratistas", { params })).data,
+  list: async (params?: ContratistaQuery) =>
+    (await api.get<Page<Contratista> & { alcance: "localidad" | "provincia" | "todos" | "radio"; cercania?: Cercania }>("/contratistas", { params })).data,
   get: async (id: number) => (await api.get<Contratista>(`/contratistas/${id}`)).data,
   /** Solo ADMIN: otorga o quita la insignia de verificado. */
   verificar: async (id: number, verificado: boolean) => (await api.put<Contratista>(`/contratistas/${id}/verificado`, { verificado })).data,

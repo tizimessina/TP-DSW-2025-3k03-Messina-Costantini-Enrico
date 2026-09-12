@@ -636,6 +636,18 @@
                     "nullable": true,
                     "minimum": 0,
                     "maximum": 80
+                  },
+                  "latitud": {
+                    "type": "number",
+                    "nullable": true,
+                    "minimum": -90,
+                    "maximum": 90
+                  },
+                  "longitud": {
+                    "type": "number",
+                    "nullable": true,
+                    "minimum": -180,
+                    "maximum": 180
                   }
                 }
               }
@@ -1006,6 +1018,18 @@
                     "minimum": 0,
                     "maximum": 80
                   },
+                  "latitud": {
+                    "type": "number",
+                    "nullable": true,
+                    "minimum": -90,
+                    "maximum": 90
+                  },
+                  "longitud": {
+                    "type": "number",
+                    "nullable": true,
+                    "minimum": -180,
+                    "maximum": 180
+                  },
                   "email": {
                     "type": "string",
                     "format": "email"
@@ -1253,6 +1277,18 @@
                     "nullable": true,
                     "minimum": 0,
                     "maximum": 80
+                  },
+                  "latitud": {
+                    "type": "number",
+                    "nullable": true,
+                    "minimum": -90,
+                    "maximum": 90
+                  },
+                  "longitud": {
+                    "type": "number",
+                    "nullable": true,
+                    "minimum": -180,
+                    "maximum": 180
                   },
                   "email": {
                     "type": "string",
@@ -1853,6 +1889,18 @@
                     "type": "string",
                     "nullable": true,
                     "maxLength": 16
+                  },
+                  "latitud": {
+                    "type": "number",
+                    "nullable": true,
+                    "minimum": -90,
+                    "maximum": 90
+                  },
+                  "longitud": {
+                    "type": "number",
+                    "nullable": true,
+                    "minimum": -180,
+                    "maximum": 180
                   }
                 },
                 "required": [
@@ -2009,6 +2057,18 @@
                     "type": "string",
                     "nullable": true,
                     "maxLength": 16
+                  },
+                  "latitud": {
+                    "type": "number",
+                    "nullable": true,
+                    "minimum": -90,
+                    "maximum": 90
+                  },
+                  "longitud": {
+                    "type": "number",
+                    "nullable": true,
+                    "minimum": -180,
+                    "maximum": 180
                   }
                 }
               }
@@ -2943,7 +3003,7 @@
           "Contratistas"
         ],
         "summary": "Listado público de contratistas",
-        "description": "Con `id_campo` filtra por la localidad del campo (cercanía) y, si no hay resultados, por su provincia; `alcance` indica cuál aplicó. Incluye servicios activos con precio vigente, valoración promedio y trabajos completados.",
+        "description": "Con `id_campo` y sin `radio_km`, filtra por la localidad del campo y, si no hay resultados, por su provincia; `alcance` indica cuál aplicó. Además informa `distancia_km` cuando se puede medir.\n\nCon `radio_km`, el filtro geográfico pasa a ser la distancia real (Haversine): se ordena de más cerca a más lejos y se excluye a quien no tiene ubicación conocida. Si nadie entra en el radio se prueba el doble y el cuádruple, informándolo en `cercania.ampliado`.\n\nEl origen es el punto del campo y, si no lo tiene, el centro de su localidad. El punto de cada contratista es el que declaró él mismo o, si no, el centro de su localidad: eso se informa en `punto_fuente`. La ubicación declarada por el contratista nunca se publica, solo la distancia derivada.",
         "parameters": [
           {
             "schema": {
@@ -3021,6 +3081,29 @@
             "required": false,
             "name": "verificado",
             "in": "query"
+          },
+          {
+            "schema": {
+              "type": "number",
+              "minimum": 0,
+              "exclusiveMinimum": true,
+              "maximum": 500
+            },
+            "required": false,
+            "name": "radio_km",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "distancia",
+                "apellido"
+              ]
+            },
+            "required": false,
+            "name": "orden",
+            "in": "query"
           }
         ],
         "responses": {
@@ -3041,8 +3124,76 @@
                           "enum": [
                             "localidad",
                             "provincia",
-                            "todos"
+                            "todos",
+                            "radio"
                           ]
+                        },
+                        "cercania": {
+                          "type": "object",
+                          "properties": {
+                            "origen": {
+                              "type": "object",
+                              "nullable": true,
+                              "properties": {
+                                "lat": {
+                                  "type": "number"
+                                },
+                                "lng": {
+                                  "type": "number"
+                                },
+                                "fuente": {
+                                  "type": "string",
+                                  "nullable": true,
+                                  "enum": [
+                                    "campo",
+                                    "localidad_campo",
+                                    null
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "lat",
+                                "lng",
+                                "fuente"
+                              ]
+                            },
+                            "radio_km": {
+                              "type": "number",
+                              "nullable": true
+                            },
+                            "radio_aplicado_km": {
+                              "type": "number",
+                              "nullable": true
+                            },
+                            "ampliado": {
+                              "type": "boolean"
+                            },
+                            "sin_ubicacion": {
+                              "type": "number",
+                              "description": "Contratistas excluidos por no tener ubicación conocida"
+                            },
+                            "truncado": {
+                              "type": "boolean",
+                              "description": "El universo de candidatos superó el tope y se procesó solo una parte"
+                            },
+                            "motivo": {
+                              "type": "string",
+                              "nullable": true,
+                              "enum": [
+                                "campo_sin_coordenadas"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "origen",
+                            "radio_km",
+                            "radio_aplicado_km",
+                            "ampliado",
+                            "sin_ubicacion",
+                            "truncado",
+                            "motivo"
+                          ],
+                          "description": "Presente cuando se indicó un campo"
                         }
                       },
                       "required": [

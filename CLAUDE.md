@@ -10,7 +10,7 @@ Los requisitos de la cátedra están en `../docs-for-agroapp/`. Instancia objeti
 - Monorepo **pnpm 8 + Turborepo 2**. Workspaces: `apps/*`, `packages/*`.
 - `apps/server`: Node + **Express 5** + TypeScript (ESM, `NodeNext`), **Zod 4**, `helmet`, `express-rate-limit`, `morgan`, `cors`, `bcrypt`, `jsonwebtoken`. Puerto 3000.
 - `apps/web`: **React 18 + Vite 5 + Tailwind 3** (tema claro/oscuro, tokens `brand`/`sand`/`harvest`), `react-router-dom` 7, `axios`, **Framer Motion**, **Headless UI**, `lucide-react`, `react-leaflet` 4. Tests con Vitest + Testing Library; e2e con Playwright.
-- `packages/database` (`@repo/db`): **Prisma 6** + **MySQL**. Una sola migración `0001_init` (con CHECK constraints). Exporta `prisma` y los tipos.
+- `packages/database` (`@repo/db`): **Prisma 6** + **MySQL**. Migraciones incrementales; la inicial trae los CHECK constraints y las siguientes son aditivas. Exporta `prisma` y los tipos.
 - Deploy: front en Vercel, back en Render, DB en Aiven MySQL, dominio `agroapp.dev`.
 
 ## Comandos
@@ -33,7 +33,7 @@ DB local: contenedor Docker Percona en `localhost:3307`, base `agro-dsw`. `apps/
 
 Cada módulo en `apps/server/src/modules/<nombre>/`: `schema.ts` (Zod + DTOs), `repository.ts` (único que toca `prisma`), `service.ts` (reglas; errores con los helpers de `core/errors/errors.ts`: `notFound`, `badRequest`, `conflict`, `forbidden`, `translatePrisma`), `controller.ts` (parsea con Zod, `next(err)`), `router.ts` (middlewares y rutas; se monta en `core/http/expressApp.ts`).
 
-Transversal en `src/core/`: `auth/` (JWT solo con `sub`; `requireAuth` revalida roles en DB; `requireRole`, `assertOwnerOrAdmin`, `optionalAuth`), `db/selects.ts` (`publicUserSelect` sin contacto, `contactUserSelect` para las partes de una solicitud), `http/pagination.ts` (`{ items, total, page, pageSize, totalPages }`), `util/dates.ts` (fechas civiles sin desfase UTC: `todayCivil`, `toCivil`), `docs/openapi.ts` (registrar toda ruta nueva con `route()` o `crud()`).
+Transversal en `src/core/`: `auth/` (JWT solo con `sub`; `requireAuth` revalida roles en DB; `requireRole`, `assertOwnerOrAdmin`, `optionalAuth`), `db/selects.ts` (`publicUserSelect` sin contacto, `contactUserSelect` para las partes de una solicitud), `http/pagination.ts` (`{ items, total, page, pageSize, totalPages }`), `util/dates.ts` (fechas civiles sin desfase UTC: `todayCivil`, `toCivil`), `util/geo.ts` (distancia por Haversine, conversión de coordenadas de Prisma y el schema Zod de coordenadas que comparten campo, localidad y perfil), `docs/openapi.ts` (registrar toda ruta nueva con `route()` o `crud()`).
 
 Convenciones: IDs `BigInt` (se serializan como number en `createApp`); imports relativos con `.js`; todo query/param validado con Zod; errores `{ status, code, message }`; nunca devolver `password_hash`.
 

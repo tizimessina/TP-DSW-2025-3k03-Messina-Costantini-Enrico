@@ -1,16 +1,19 @@
 import { motion } from "framer-motion";
-import { MapPin, SearchX, Tractor } from "lucide-react";
+import { MapPin, Navigation, SearchX, Tractor } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { campos as camposApi, categorias as categoriasApi, contratistas as contratistasApi, localidades as localidadesApi, provincias as provinciasApi } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import { AnimatedPage } from "../components/layout/AppShell";
 import { Alert, Avatar, EmptyState, Field, Input, PageHeader, Pagination, Select, SkeletonCard, Stars, VerificadoBadge } from "../components/ui";
-import { fmtMoney, fullName, pluralize, ubicacion } from "../lib/format";
+import { fmtKm, fmtMoney, fullName, pluralize, ubicacion } from "../lib/format";
 import { useDebounce } from "../lib/useDebounce";
 import { useQuery } from "../lib/useQuery";
 
-/** Listado de contratistas por cercanía (localidad del campo elegido) o por provincia/localidad. */
+/** Radios ofrecidos. Sin valor, la búsqueda no filtra por distancia: solo la informa. */
+const RADIOS = [25, 50, 100, 200, 500];
+
+/** Listado de contratistas por cercanía al campo elegido, o por provincia y localidad. */
 export default function ContratistasPage() {
   const { isProductor } = useAuth();
   const [params, setParams] = useSearchParams();
@@ -20,6 +23,7 @@ export default function ContratistasPage() {
   const provincia = params.get("provincia") ?? "";
   const localidad = params.get("localidad") ?? "";
   const categoria = params.get("categoria") ?? "";
+  const radio = params.get("radio") ?? "";
   const page = Number(params.get("page") ?? 1);
 
   const setParam = (k: string, v: string) => {
@@ -27,7 +31,9 @@ export default function ContratistasPage() {
     if (v) next.set(k, v); else next.delete(k);
     if (k !== "page") next.delete("page");
     if (k === "campo" && v) { next.delete("provincia"); next.delete("localidad"); }
-    if ((k === "provincia" || k === "localidad") && v) next.delete("campo");
+    // Sin campo no hay desde dónde medir: el radio se va con él.
+    if (k === "campo" && !v) next.delete("radio");
+    if ((k === "provincia" || k === "localidad") && v) { next.delete("campo"); next.delete("radio"); }
     if (k === "provincia") next.delete("localidad");
     setParams(next, { replace: true });
   };
@@ -44,9 +50,11 @@ export default function ContratistasPage() {
   }, [campos.data]);
 
   const lista = useQuery(
-    () => contratistasApi.list({ q: dq || undefined, id_campo: campo ? Number(campo) : undefined, id_provincia: provincia ? Number(provincia) : undefined, id_localidad: localidad ? Number(localidad) : undefined, id_categoria: categoria ? Number(categoria) : undefined, page, pageSize: 12 }),
-    [dq, campo, provincia, localidad, categoria, page],
+    () => contratistasApi.list({ q: dq || undefined, id_campo: campo ? Number(campo) : undefined, id_provincia: provincia ? Number(provincia) : undefined, id_localidad: localidad ? Number(localidad) : undefined, id_categoria: categoria ? Number(categoria) : undefined, radio_km: radio ? Number(radio) : undefined, page, pageSize: 12 }),
+    [dq, campo, provincia, localidad, categoria, radio, page],
   );
+
+  const cercania = lista.data?.cercania;
 
   return (
     <AnimatedPage className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
@@ -79,10 +87,27 @@ export default function ContratistasPage() {
             {categorias.data?.map((c) => <option key={c.id_categoria} value={c.id_categoria}>{c.nombre}</option>)}
           </Select>
         </Field>
+        <Field label="Radio de búsqueda">
+          <Select value={radio} onChange={(e) => setParam("radio", e.target.value)} disabled={!campo}>
+            <option value="">Sin límite</option>
+            {RADIOS.map((r) => <option key={r} value={r}>Hasta {r} km</option>)}
+          </Select>
+        </Field>
         <Field label="Nombre" className="md:col-span-4"><Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nombre o apellido" /></Field>
       </div>
 
       {lista.data?.alcance === "provincia" && campo && <Alert kind="info" className="mb-4">No hay contratistas en la localidad de tu campo: te mostramos los de la misma provincia.</Alert>}
+      {cercania?.ampliado && cercania.radio_aplicado_km && (
+        <Alert kind="info" className="mb-4">
+          No hay contratistas a menos de {cercania.radio_km} km: te mostramos los que están dentro de {cercania.radio_aplicado_km} km.
+        </Alert>
+      )}
+      {cercania?.motivo === "campo_sin_coordenadas" && (
+        <Alert kind="warning" className="mb-4">
+          Tu campo no tiene la ubicación marcada en el mapa, así que buscamos por localidad. Podés marcarla desde{" "}
+          <Link to={`/campos/${campo}`} className="font-semibold underline">el detalle del campo</Link>.
+        </Alert>
+      )}
       {lista.error && <Alert kind="error" className="mb-4">{lista.error}</Alert>}
 
       {lista.loading ? (
@@ -103,6 +128,14 @@ export default function ContratistasPage() {
                         <VerificadoBadge verificado={c.verificado} size="sm" className="shrink-0" />
                       </p>
                       <p className="flex items-center gap-1 truncate text-xs text-stone-500"><MapPin className="h-3 w-3" />{ubicacion(c.users.localidad)}</p>
+                      {c.distancia_km != null && (
+                        <p
+                          className="mt-0.5 flex items-center gap-1 text-xs font-semibold text-brand-700 dark:text-brand-300"
+                          title={c.punto_fuente === "localidad" ? "Distancia aproximada al centro de su localidad" : "Distancia a la base que declaró el contratista"}
+                        >
+                          <Navigation className="h-3 w-3" />{fmtKm(c.distancia_km)}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <p className="mt-3 line-clamp-2 text-sm text-stone-600 dark:text-stone-400">{c.descripcion || "Sin descripción"}</p>
@@ -123,6 +156,11 @@ export default function ContratistasPage() {
               </motion.div>
             ))}
           </div>
+          {cercania && cercania.sin_ubicacion > 0 && (
+            <p className="mt-4 text-center text-xs text-stone-500">
+              {pluralize(cercania.sin_ubicacion, "contratista no aparece", "contratistas no aparecen")} porque todavía no tiene cargada su ubicación.
+            </p>
+          )}
           <Pagination page={lista.data.page} totalPages={lista.data.totalPages} total={lista.data.total} onChange={(p) => setParam("page", String(p))} />
         </>
       )}

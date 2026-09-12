@@ -12,6 +12,8 @@ Estado al 2026-09-11. Lo que falta para cerrar la entrega, en orden.
 ## Después de la defensa
 
 - [ ] Cambiar la contraseña del usuario admin de producción (las credenciales demo son públicas en el repo).
+- [ ] Cargar coordenadas al resto de las localidades: el seed cubre las 13 de demostración, las que se den de alta después las carga el administrador.
+- [ ] Mover el cálculo de distancia a la base (`ST_Distance_Sphere` con índice espacial) si el volumen de contratistas lo justifica.
 - [ ] Decidir si los perfiles públicos de contratistas deben requerir sesión.
 
 ## Ideas fuera de alcance (documentadas en [modelo.md](modelo.md))
@@ -19,4 +21,3 @@ Estado al 2026-09-11. Lo que falta para cerrar la entrega, en orden.
 - Notificaciones por email al cambiar el estado de una solicitud.
 - Calendario de disponibilidad del contratista y control de superposición.
 - Servicios cotizados por hora o por viaje.
-- Distancia real por coordenadas entre campo y contratista.

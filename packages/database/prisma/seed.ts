@@ -22,25 +22,26 @@ const ROLES = [
 ] as const;
 type RoleName = (typeof ROLES)[number]["name"];
 
-const PROVINCIAS: Record<string, { nombre: string; codigo_postal: string }[]> = {
+/** Centro aproximado de cada localidad, para calcular distancias reales. */
+const PROVINCIAS: Record<string, { nombre: string; codigo_postal: string; lat: number; lng: number }[]> = {
   "Santa Fe": [
-    { nombre: "Rosario", codigo_postal: "2000" },
-    { nombre: "Santa Fe", codigo_postal: "3000" },
-    { nombre: "Rafaela", codigo_postal: "2300" },
-    { nombre: "Venado Tuerto", codigo_postal: "2600" },
-    { nombre: "Casilda", codigo_postal: "2170" },
+    { nombre: "Rosario", codigo_postal: "2000", lat: -32.9468, lng: -60.6393 },
+    { nombre: "Santa Fe", codigo_postal: "3000", lat: -31.6333, lng: -60.7 },
+    { nombre: "Rafaela", codigo_postal: "2300", lat: -31.2527, lng: -61.492 },
+    { nombre: "Venado Tuerto", codigo_postal: "2600", lat: -33.7458, lng: -61.9689 },
+    { nombre: "Casilda", codigo_postal: "2170", lat: -33.0447, lng: -61.1681 },
   ],
   Córdoba: [
-    { nombre: "Córdoba", codigo_postal: "5000" },
-    { nombre: "Río Cuarto", codigo_postal: "5800" },
-    { nombre: "Villa María", codigo_postal: "5900" },
-    { nombre: "Marcos Juárez", codigo_postal: "2580" },
+    { nombre: "Córdoba", codigo_postal: "5000", lat: -31.4201, lng: -64.1888 },
+    { nombre: "Río Cuarto", codigo_postal: "5800", lat: -33.1232, lng: -64.3493 },
+    { nombre: "Villa María", codigo_postal: "5900", lat: -32.4075, lng: -63.24 },
+    { nombre: "Marcos Juárez", codigo_postal: "2580", lat: -32.695, lng: -62.106 },
   ],
   "Buenos Aires": [
-    { nombre: "La Plata", codigo_postal: "1900" },
-    { nombre: "Pergamino", codigo_postal: "2700" },
-    { nombre: "Junín", codigo_postal: "6000" },
-    { nombre: "Tandil", codigo_postal: "7000" },
+    { nombre: "La Plata", codigo_postal: "1900", lat: -34.9215, lng: -57.9545 },
+    { nombre: "Pergamino", codigo_postal: "2700", lat: -33.8894, lng: -60.5739 },
+    { nombre: "Junín", codigo_postal: "6000", lat: -34.5844, lng: -60.9463 },
+    { nombre: "Tandil", codigo_postal: "7000", lat: -37.3217, lng: -59.1332 },
   ],
 };
 
@@ -95,7 +96,7 @@ const USERS: DemoUser[] = [
   {
     email: "contratista@agroapp.dev", password: "Contratista123!", nombre: "Pedro", apellido: "Molina", roles: ["CONTRATISTA"],
     localidad: "Venado Tuerto", domicilio: "Av. Casey 850", telefono: "3462-430000", cuil_cuit: "20-25555666-7",
-    contratista: { descripcion: "Siembra directa y cosecha con equipos John Deere de última generación. Trabajamos en el sur de Santa Fe y norte de Buenos Aires.", anios_experiencia: 15, verificado: true },
+    contratista: { descripcion: "Siembra directa y cosecha con equipos John Deere de última generación. Trabajamos en el sur de Santa Fe y norte de Buenos Aires.", anios_experiencia: 15, verificado: true, lat: -33.71, lng: -61.9 },
   },
   {
     email: "contratista2@agroapp.dev", password: "Contratista123!", nombre: "Marta", apellido: "Giménez", roles: ["CONTRATISTA"],
@@ -124,8 +125,10 @@ async function seedGeografia() {
     for (const l of locs) {
       const loc = await prisma.localidad.upsert({
         where: { id_provincia_nombre: { id_provincia: prov.id_provincia, nombre: l.nombre } },
-        update: { codigo_postal: l.codigo_postal },
-        create: { id_provincia: prov.id_provincia, nombre: l.nombre, codigo_postal: l.codigo_postal },
+        // Las coordenadas van también en `update`: una base ya sembrada antes de
+        // esta versión no las tiene y hay que completárselas.
+        update: { codigo_postal: l.codigo_postal, latitud: l.lat, longitud: l.lng },
+        create: { id_provincia: prov.id_provincia, nombre: l.nombre, codigo_postal: l.codigo_postal, latitud: l.lat, longitud: l.lng },
       });
       localidades.set(l.nombre, loc.id_localidad);
       count++;
@@ -188,6 +191,10 @@ async function seedUsuarios(localidades: Map<string, bigint>) {
           anios_experiencia: u.contratista?.anios_experiencia,
           verificado: u.contratista?.verificado ?? false,
           verificado_at: u.contratista?.verificado ? new Date() : null,
+          // Solo uno de los tres declara su base: así la demo muestra las dos
+          // fuentes de punto (propia y centro de la localidad) en la misma pantalla.
+          latitud: u.contratista?.lat ?? null,
+          longitud: u.contratista?.lng ?? null,
         },
         create: {
           id_user: user.id_user,
@@ -195,6 +202,8 @@ async function seedUsuarios(localidades: Map<string, bigint>) {
           anios_experiencia: u.contratista?.anios_experiencia,
           verificado: u.contratista?.verificado ?? false,
           verificado_at: u.contratista?.verificado ? new Date() : null,
+          latitud: u.contratista?.lat ?? null,
+          longitud: u.contratista?.lng ?? null,
         },
       });
     }

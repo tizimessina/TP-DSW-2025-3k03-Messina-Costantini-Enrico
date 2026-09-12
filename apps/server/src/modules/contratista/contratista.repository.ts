@@ -4,24 +4,54 @@ import { todayCivil } from "../../core/util/dates.js";
 
 const precioVigenteInclude = { where: { fecha_desde: { lte: todayCivil() } }, orderBy: { fecha_desde: "desc" as const }, take: 1 };
 
+/**
+ * Forma del contratista en los listados. La comparten `list` y `listByIds`: si se
+ * desincronizaran, el modo por radio devolvería un payload distinto al del modo
+ * normal y la pantalla se rompería solo con radio.
+ */
+const listInclude = {
+  users: { select: publicUserSelect },
+  servicio: { where: { activo: true }, include: { categoria: true, precio: precioVigenteInclude } },
+  _count: { select: { solicitud: { where: { estado: "completada" as const } } } },
+};
+
 export const contratistaRepo = {
   list: async (where: Prisma.contratista_profileWhereInput, skip: number, take: number) => {
     const [items, total] = await Promise.all([
+      prisma.contratista_profile.findMany({ where, skip, take, orderBy: { users: { apellido: "asc" } }, include: listInclude }),
+      prisma.contratista_profile.count({ where }),
+    ]);
+    return { items, total };
+  },
+
+  /**
+   * Candidatos para el cálculo de distancia: solo lo necesario para ubicarlos y
+   * ordenarlos. Se trae sin paginar porque el orden por distancia no se puede
+   * resolver en la base sin SQL crudo; el tope acota el costo.
+   */
+  listCandidatosUbicacion: async (where: Prisma.contratista_profileWhereInput, cap: number) => {
+    const [items, total] = await Promise.all([
       prisma.contratista_profile.findMany({
         where,
-        skip,
-        take,
+        take: cap,
         orderBy: { users: { apellido: "asc" } },
-        include: {
-          users: { select: publicUserSelect },
-          servicio: { where: { activo: true }, include: { categoria: true, precio: precioVigenteInclude } },
-          _count: { select: { solicitud: { where: { estado: "completada" } } } },
+        select: {
+          id_user: true,
+          latitud: true,
+          longitud: true,
+          users: { select: { apellido: true, localidad: { select: { latitud: true, longitud: true } } } },
         },
       }),
       prisma.contratista_profile.count({ where }),
     ]);
     return { items, total };
   },
+
+  /** Hidrata la página ya elegida. El orden lo repone el service: `in` no lo respeta. */
+  listByIds: (ids: bigint[]) =>
+    ids.length === 0
+      ? Promise.resolve([])
+      : prisma.contratista_profile.findMany({ where: { id_user: { in: ids } }, include: listInclude }),
 
   getById: (id: bigint) =>
     prisma.contratista_profile.findUnique({
@@ -68,6 +98,15 @@ export const contratistaRepo = {
       include: { users: { select: publicUserSelect } },
     }),
 
+  /** Ubicación del campo: su punto propio y, como respaldo, el de su localidad. */
   campoUbicacion: (id_campo: bigint) =>
-    prisma.campo.findUnique({ where: { id_campo }, select: { id_localidad: true, localidad: { select: { id_provincia: true } } } }),
+    prisma.campo.findUnique({
+      where: { id_campo },
+      select: {
+        id_localidad: true,
+        latitud: true,
+        longitud: true,
+        localidad: { select: { id_provincia: true, latitud: true, longitud: true } },
+      },
+    }),
 };

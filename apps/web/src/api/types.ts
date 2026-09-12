@@ -31,6 +31,9 @@ export interface Localidad {
   id_provincia: number;
   nombre: string;
   codigo_postal?: string | null;
+  /** Centro de la localidad: respaldo para calcular distancias. */
+  latitud?: Decimal | null;
+  longitud?: Decimal | null;
   provincia?: Provincia;
 }
 
@@ -56,7 +59,7 @@ export interface Usuario extends UsuarioContacto {
   fecha_nac?: string | null;
   roles: RoleName[];
   productor: { razon_social: string | null } | null;
-  contratista: { descripcion: string | null; anios_experiencia: number | null } | null;
+  contratista: { descripcion: string | null; anios_experiencia: number | null; latitud?: Decimal | null; longitud?: Decimal | null } | null;
   created_at?: string;
 }
 
@@ -89,7 +92,22 @@ export interface ContratistaResumen {
   /** Insignia otorgada por la administración tras revisar identidad y datos fiscales. */
   verificado?: boolean;
   verificado_at?: string | null;
+  /** Distancia al campo elegido. Null si no se pidió cercanía o no se conoce su ubicación. */
+  distancia_km?: number | null;
+  /** De dónde salió el punto usado para medir. */
+  punto_fuente?: "propio" | "localidad" | null;
   users: UsuarioPublico;
+}
+
+/** Contexto de la búsqueda por cercanía, presente cuando se indicó un campo. */
+export interface Cercania {
+  origen: { lat: number; lng: number; fuente: "campo" | "localidad_campo" | null } | null;
+  radio_km: number | null;
+  radio_aplicado_km: number | null;
+  ampliado: boolean;
+  sin_ubicacion: number;
+  truncado: boolean;
+  motivo: "campo_sin_coordenadas" | null;
 }
 
 /** Precio de mercado de la categoría, calculado con los precios vigentes del sistema. */

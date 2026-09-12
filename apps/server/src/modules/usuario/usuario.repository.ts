@@ -73,7 +73,7 @@ export const usuarioRepo = {
     id: bigint | null,
     data: PersonaData & { email?: string; password_hash?: string },
     roles: { names: RoleName[]; ids: number[] } | undefined,
-    profiles: { razon_social?: string | null; descripcion?: string | null; anios_experiencia?: number | null },
+    profiles: { razon_social?: string | null; descripcion?: string | null; anios_experiencia?: number | null; latitud?: number | null; longitud?: number | null },
   ) =>
     prisma.$transaction(async (tx) => {
       const base = strip(data);
@@ -92,7 +92,12 @@ export const usuarioRepo = {
       }
 
       const productorData = strip({ razon_social: profiles.razon_social });
-      const contratistaData = strip({ descripcion: profiles.descripcion, anios_experiencia: profiles.anios_experiencia });
+      const contratistaData = strip({
+        descripcion: profiles.descripcion,
+        anios_experiencia: profiles.anios_experiencia,
+        latitud: profiles.latitud,
+        longitud: profiles.longitud,
+      });
 
       if (roleNames!.includes('PRODUCTOR')) {
         await tx.productor_profile.upsert({ where: { id_user: uid }, update: productorData, create: { id_user: uid, ...productorData } });

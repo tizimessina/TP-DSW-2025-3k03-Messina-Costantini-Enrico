@@ -50,3 +50,11 @@ export const mesCorto = (periodo: string) => {
   const d = new Date(Date.UTC(Number(anio), Number(mes) - 1, 1));
   return `${d.toLocaleDateString("es-AR", { month: "short", timeZone: "UTC" }).replace(".", "")} ${anio.slice(2)}`;
 };
+
+/** Distancia legible: "a 0,2 km" cerca, sin decimales a partir de 10 km. */
+export const fmtKm = (km: number | null | undefined) => {
+  if (km === null || km === undefined) return null;
+  const n = Number(km);
+  if (!Number.isFinite(n)) return null;
+  return `a ${n >= 10 ? Math.round(n).toLocaleString("es-AR") : n.toLocaleString("es-AR", { maximumFractionDigits: 1 })} km`;
+};
