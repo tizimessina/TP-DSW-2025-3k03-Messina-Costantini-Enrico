@@ -42,7 +42,7 @@ Adicionales para Aprobación:
 |Login y niveles de acceso|Autenticación propia con JWT. Tres niveles: ADMIN (catálogos y usuarios), PRODUCTOR (campos y solicitudes propias), CONTRATISTA (servicios, precios y solicitudes recibidas). Rutas protegidas en backend (roles revalidados en cada request) y frontend. Los datos de contacto solo se muestran entre las partes de una solicitud.|
 |Tests|Backend: unitarios (auth, solicitud, usuario) + integración end-to-end sobre la API. Frontend: tests de componente + e2e con Playwright del flujo completo.|
 
-Nota sobre el listado "por aproximación geográfica" de la propuesta original: se implementó como cercanía por localidad del campo elegido, con ampliación automática a la provincia cuando no hay contratistas en la localidad. No se calcula distancia por coordenadas.
+Nota sobre el listado "por aproximación geográfica" de la propuesta original: se implementó en dos niveles. Sin radio, cercanía por localidad del campo elegido, con ampliación automática a la provincia cuando no hay contratistas en la localidad. Con un radio en kilómetros, filtro por distancia real entre el campo y el contratista, con orden de más cerca a más lejos y ampliación del radio cuando no hay resultados.
 
 ### Alcance Adicional Voluntario
 

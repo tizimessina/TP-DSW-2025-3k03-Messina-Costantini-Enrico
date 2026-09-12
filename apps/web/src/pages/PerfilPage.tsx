@@ -1,9 +1,10 @@
-import { KeyRound, Save } from "lucide-react";
+import { KeyRound, MapPinOff, Save } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { auth as authApi, getApiErrorMessage, localidades as localidadesApi } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import { useFeedback } from "../components/feedback";
 import { AnimatedPage } from "../components/layout/AppShell";
+import { MapView } from "../components/MapView";
 import { Alert, Avatar, Button, Card, Field, Input, PageHeader, RoleBadge, Select, Textarea } from "../components/ui";
 import { fullName, isoToDateInput } from "../lib/format";
 import { useQuery } from "../lib/useQuery";
@@ -17,6 +18,7 @@ export default function PerfilPage() {
     nombre: user?.nombre ?? "", apellido: user?.apellido ?? "", cuil_cuit: user?.cuil_cuit ?? "", telefono: user?.telefono ?? "",
     fecha_nac: isoToDateInput(user?.fecha_nac), domicilio: user?.domicilio ?? "", id_localidad: user?.id_localidad ? String(user.id_localidad) : "",
     razon_social: user?.productor?.razon_social ?? "", descripcion: user?.contratista?.descripcion ?? "", anios_experiencia: user?.contratista?.anios_experiencia?.toString() ?? "",
+    lat: user?.contratista?.latitud != null ? String(user.contratista.latitud) : "", lng: user?.contratista?.longitud != null ? String(user.contratista.longitud) : "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +38,14 @@ export default function PerfilPage() {
         nombre: form.nombre.trim(), apellido: form.apellido.trim(), cuil_cuit: form.cuil_cuit.trim() || null, telefono: form.telefono.trim() || null,
         fecha_nac: form.fecha_nac || null, domicilio: form.domicilio.trim() || null, id_localidad: form.id_localidad ? Number(form.id_localidad) : null,
         ...(isProductor ? { razon_social: form.razon_social.trim() || null } : {}),
-        ...(isContratista ? { descripcion: form.descripcion.trim() || null, anios_experiencia: form.anios_experiencia ? Number(form.anios_experiencia) : null } : {}),
+        ...(isContratista
+          ? {
+              descripcion: form.descripcion.trim() || null,
+              anios_experiencia: form.anios_experiencia ? Number(form.anios_experiencia) : null,
+              latitud: form.lat ? Number(form.lat) : null,
+              longitud: form.lng ? Number(form.lng) : null,
+            }
+          : {}),
       });
       setUser(updated);
       toast.success("Perfil actualizado");
@@ -107,6 +116,29 @@ export default function PerfilPage() {
             <div className="mt-3 flex flex-wrap gap-1.5">{user.roles.map((r) => <RoleBadge key={r} role={r} />)}</div>
             <p className="mt-3 text-xs text-stone-500">El email y los roles los administra un administrador.</p>
           </Card>
+
+          {isContratista && (
+            <Card title="Zona de trabajo" subtitle="Marcá desde dónde salís a trabajar. Se usa solo para calcular distancias: los productores ven a cuántos kilómetros estás, nunca tu ubicación exacta.">
+              <MapView
+                point={form.lat && form.lng ? { lat: Number(form.lat), lng: Number(form.lng) } : null}
+                onPick={(p) => setForm((f) => ({ ...f, lat: String(p.lat), lng: String(p.lng) }))}
+                height="h-56"
+              />
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <Field label="Latitud"><Input type="number" step="0.000001" value={form.lat} onChange={set("lat")} placeholder="-33.7458" /></Field>
+                <Field label="Longitud"><Input type="number" step="0.000001" value={form.lng} onChange={set("lng")} placeholder="-61.9689" /></Field>
+              </div>
+              <p className="mt-2 text-xs text-stone-500">
+                Si no la cargás, la distancia se calcula desde el centro de tu localidad.
+              </p>
+              {(form.lat || form.lng) && (
+                <Button variant="ghost" size="sm" className="mt-2" icon={<MapPinOff className="h-4 w-4" />} onClick={() => setForm((f) => ({ ...f, lat: "", lng: "" }))}>
+                  Quitar ubicación
+                </Button>
+              )}
+              <p className="mt-3 text-xs text-stone-500">Se guarda con el botón de arriba, junto al resto del perfil.</p>
+            </Card>
+          )}
 
           <Card title="Cambiar contraseña">
             <form onSubmit={changePw} className="space-y-3">

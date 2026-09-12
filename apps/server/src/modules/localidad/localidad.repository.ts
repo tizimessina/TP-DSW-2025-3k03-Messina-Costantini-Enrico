@@ -14,10 +14,10 @@ export const localidadRepo = {
   getById: (id: bigint) =>
     prisma.localidad.findUnique({ where: { id_localidad: id }, include: { provincia: true } }),
 
-  create: (data: { id_provincia: bigint; nombre: string; codigo_postal: string | null }) =>
+  create: (data: { id_provincia: bigint; nombre: string; codigo_postal: string | null; latitud?: number | null; longitud?: number | null }) =>
     prisma.localidad.create({ data, include: { provincia: true } }),
 
-  update: (id: bigint, data: { nombre?: string; codigo_postal?: string | null }) =>
+  update: (id: bigint, data: { nombre?: string; codigo_postal?: string | null; latitud?: number | null; longitud?: number | null }) =>
     prisma.localidad.update({ where: { id_localidad: id }, data, include: { provincia: true } }),
 
   remove: (id: bigint) => prisma.localidad.delete({ where: { id_localidad: id } }),

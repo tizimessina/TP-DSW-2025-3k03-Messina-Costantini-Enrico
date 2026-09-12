@@ -240,7 +240,12 @@ stateDiagram-v2
 - `GET /auth/me/resumen` devuelve además una serie de los últimos seis meses de trabajos completados, que alimenta el gráfico del panel.
 
 ### Cercanía
-- `GET /contratistas?id_campo=` filtra por la localidad del campo; si no hay contratistas ahí, amplía a la provincia e informa el alcance aplicado.
+- **Origen de la búsqueda**: el punto del campo elegido y, si no lo tiene cargado, el centro de su localidad. Sin ninguno de los dos no hay desde dónde medir.
+- **Punto del contratista**: el que declaró él mismo en su perfil y, si no lo cargó, el centro de su localidad. Cada resultado informa cuál se usó en `punto_fuente`. La ubicación declarada por el contratista **nunca se publica**: solo viaja la distancia derivada.
+- **Sin `radio_km`**: `GET /contratistas?id_campo=` filtra por la localidad del campo y, si no hay contratistas ahí, amplía a la provincia e informa el alcance aplicado. Además devuelve `distancia_km` cuando se puede medir.
+- **Con `radio_km`**: el filtro geográfico pasa a ser la distancia real, calculada con la fórmula de Haversine sobre una esfera de 6371 km. Se ordena de más cerca a más lejos y se excluye a quien no tiene ubicación conocida, informando cuántos fueron en `cercania.sin_ubicacion`.
+- Si nadie entra en el radio pedido se prueba el doble y el cuádruple, hasta 500 km, y se informa en `cercania.ampliado` y `cercania.radio_aplicado_km`.
+- Si se pide radio pero el campo no tiene ubicación, la búsqueda **degrada** al filtro por localidad en vez de fallar, y lo declara en `cercania.motivo`.
 
 ## Decisiones de diseño y limitaciones conocidas
 
@@ -248,7 +253,8 @@ stateDiagram-v2
 |:-|:-|
 | Unidad de precio | Todos los servicios se cotizan **por hectárea**. Servicios por hora o por viaje quedan fuera del alcance. |
 | Precio de insumos | Lo fija el administrador como referencia; el contratista no negocia precio por solicitud. Simplifica el modelo y evita que el cliente fije precios ajenos. |
-| Cercanía | Se resuelve por localidad y provincia del campo. No hay cálculo de distancia por coordenadas. |
+| Cercanía | Se calcula la distancia real entre el campo y el contratista con Haversine. El cálculo corre en la aplicación, no en la base: se traen los candidatos (tope de 500) y se pagina en memoria. Con más volumen habría que llevarlo a la base con `ST_Distance_Sphere` e índice espacial. |
+| Precisión geográfica | La distancia es en línea recta, no por ruta. Para quien no cargó su punto se usa el centro de su localidad, con el error que eso implica. Las localidades sin coordenadas cargadas no participan del filtro por radio. |
 | Disponibilidad | No hay calendario ni control de capacidad: un contratista puede aceptar trabajos superpuestos. |
 | Confirmación del trabajo | La completitud la declara el contratista; el productor responde con la valoración. No hay disputas ni pagos en la plataforma. |
 | Notificaciones | Hay avisos dentro de la aplicación, con campana y contador. Email y push quedan fuera del alcance. |

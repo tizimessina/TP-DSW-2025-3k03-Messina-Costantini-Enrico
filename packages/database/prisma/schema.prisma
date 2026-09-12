@@ -22,6 +22,10 @@ model localidad {
   id_provincia  BigInt    @db.UnsignedBigInt
   nombre        String    @db.VarChar(120)
   codigo_postal String?   @db.VarChar(16)
+  /// Centro aproximado de la localidad. Se usa para calcular distancias cuando
+  /// el contratista no declaró su propio punto.
+  latitud       Decimal?  @db.Decimal(9, 6)
+  longitud      Decimal?  @db.Decimal(9, 6)
   provincia     provincia @relation(fields: [id_provincia], references: [id_provincia], map: "fk_localidad_provincia")
   users         users[]
   campo         campo[]
@@ -86,6 +90,10 @@ model contratista_profile {
   id_user           BigInt      @id @db.UnsignedBigInt
   descripcion       String?     @db.VarChar(600)
   anios_experiencia Int?        @db.UnsignedSmallInt
+  /// Base de operaciones declarada por el contratista. Nunca se expone en la API:
+  /// solo se publica la distancia derivada.
+  latitud           Decimal?    @db.Decimal(9, 6)
+  longitud          Decimal?    @db.Decimal(9, 6)
   /// Lo marca un administrador tras revisar identidad y datos fiscales.
   verificado        Boolean     @default(false)
   verificado_at     DateTime?   @db.DateTime(3)

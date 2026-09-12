@@ -1,9 +1,10 @@
-import { MapPin, Pencil, Plus, Trash2 } from "lucide-react";
+import { Check, MapPin, Minus, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { getApiErrorMessage, localidades as localidadesApi, provincias as provinciasApi } from "../../api";
 import type { Localidad } from "../../api/types";
 import { useFeedback } from "../../components/feedback";
 import { AnimatedPage } from "../../components/layout/AppShell";
+import { MapView } from "../../components/MapView";
 import { Alert, Button, Card, EmptyState, Field, Input, PageHeader, Select, Skeleton, Td, Th } from "../../components/ui";
 import { Dialog } from "../../components/ui/Dialog";
 import { useQuery } from "../../lib/useQuery";
@@ -15,14 +16,20 @@ export default function LocalidadesPage() {
   const [filtro, setFiltro] = useState("");
   const lista = useQuery(() => localidadesApi.list({ id_provincia: filtro ? Number(filtro) : undefined }), [filtro]);
   const [editing, setEditing] = useState<Localidad | null | undefined>(undefined);
-  const [form, setForm] = useState({ id_provincia: "", nombre: "", codigo_postal: "" });
+  const [form, setForm] = useState({ id_provincia: "", nombre: "", codigo_postal: "", lat: "", lng: "" });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const open = (l: Localidad | null) => {
     setEditing(l);
     setError(null);
-    setForm({ id_provincia: l ? String(l.id_provincia) : filtro, nombre: l?.nombre ?? "", codigo_postal: l?.codigo_postal ?? "" });
+    setForm({
+      id_provincia: l ? String(l.id_provincia) : filtro,
+      nombre: l?.nombre ?? "",
+      codigo_postal: l?.codigo_postal ?? "",
+      lat: l?.latitud != null ? String(l.latitud) : "",
+      lng: l?.longitud != null ? String(l.longitud) : "",
+    });
   };
 
   const submit = async (e: FormEvent) => {
@@ -30,8 +37,9 @@ export default function LocalidadesPage() {
     setError(null);
     setSaving(true);
     try {
-      if (editing) await localidadesApi.update(editing.id_localidad, { nombre: form.nombre.trim(), codigo_postal: form.codigo_postal.trim() || null });
-      else await localidadesApi.create({ id_provincia: Number(form.id_provincia), nombre: form.nombre.trim(), codigo_postal: form.codigo_postal.trim() || null });
+      const coords = { latitud: form.lat ? Number(form.lat) : null, longitud: form.lng ? Number(form.lng) : null };
+      if (editing) await localidadesApi.update(editing.id_localidad, { nombre: form.nombre.trim(), codigo_postal: form.codigo_postal.trim() || null, ...coords });
+      else await localidadesApi.create({ id_provincia: Number(form.id_provincia), nombre: form.nombre.trim(), codigo_postal: form.codigo_postal.trim() || null, ...coords });
       toast.success(editing ? "Localidad actualizada" : "Localidad creada");
       setEditing(undefined);
       lista.reload();
@@ -71,13 +79,20 @@ export default function LocalidadesPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
-              <thead><tr><Th>Localidad</Th><Th>Provincia</Th><Th>CP</Th><Th className="text-right">Acciones</Th></tr></thead>
+              <thead><tr><Th>Localidad</Th><Th>Provincia</Th><Th>CP</Th><Th>Ubicación</Th><Th className="text-right">Acciones</Th></tr></thead>
               <tbody>
                 {lista.data.map((l) => (
                   <tr key={l.id_localidad} className="transition hover:bg-stone-50 dark:hover:bg-stone-800/50">
                     <Td className="font-medium">{l.nombre}</Td>
                     <Td>{l.provincia?.nombre}</Td>
                     <Td>{l.codigo_postal || "—"}</Td>
+                    <Td>
+                      {l.latitud != null && l.longitud != null ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-brand-700 dark:text-brand-300" title="Tiene coordenadas: participa de la búsqueda por distancia"><Check className="h-3.5 w-3.5" />Cargada</span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs text-stone-400" title="Sin coordenadas: sus contratistas quedan fuera de la búsqueda por radio"><Minus className="h-3.5 w-3.5" />Sin cargar</span>
+                      )}
+                    </Td>
                     <Td className="text-right"><span className="inline-flex gap-1"><Button variant="ghost" size="sm" onClick={() => open(l)} aria-label="Editar"><Pencil className="h-4 w-4" /></Button><Button variant="ghost" size="sm" onClick={() => del(l)} aria-label="Eliminar"><Trash2 className="h-4 w-4 text-red-500" /></Button></span></Td>
                   </tr>
                 ))}
@@ -98,6 +113,19 @@ export default function LocalidadesPage() {
             </Field>
             <Field label="Nombre" required><Input value={form.nombre} onChange={(e) => setForm((p) => ({ ...p, nombre: e.target.value }))} required /></Field>
             <Field label="Código postal"><Input value={form.codigo_postal} onChange={(e) => setForm((p) => ({ ...p, codigo_postal: e.target.value }))} maxLength={16} /></Field>
+            <div>
+              <p className="mb-2 text-sm font-medium">Centro de la localidad</p>
+              <MapView
+                point={form.lat && form.lng ? { lat: Number(form.lat), lng: Number(form.lng) } : null}
+                onPick={(pt) => setForm((p) => ({ ...p, lat: String(pt.lat), lng: String(pt.lng) }))}
+                height="h-48"
+              />
+              <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                <Field label="Latitud"><Input type="number" step="0.000001" value={form.lat} onChange={(e) => setForm((p) => ({ ...p, lat: e.target.value }))} /></Field>
+                <Field label="Longitud"><Input type="number" step="0.000001" value={form.lng} onChange={(e) => setForm((p) => ({ ...p, lng: e.target.value }))} /></Field>
+              </div>
+              <p className="mt-1 text-xs text-stone-500">Sin coordenadas, los contratistas de esta localidad no aparecen en las búsquedas por radio.</p>
+            </div>
             {error && <Alert kind="error">{error}</Alert>}
           </form>
         </Dialog>

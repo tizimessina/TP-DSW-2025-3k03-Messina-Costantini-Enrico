@@ -120,7 +120,38 @@ crud({ tag: "Localidades", base: "/localidades", entity: "localidad", create: Lo
 crud({ tag: "Categorías", base: "/categorias-servicio", entity: "categoría de servicio", create: CategoriaServicioCreateSchema, update: CategoriaServicioUpdateSchema, query: CategoriaServicioQuerySchema, writeRoles: ["ADMIN"], deleteReturns: "json" });
 crud({ tag: "Insumos", base: "/insumos", entity: "insumo (con precio de referencia y unidad)", create: InsumoCreateSchema, update: InsumoUpdateSchema, query: InsumoQuerySchema, writeRoles: ["ADMIN"], deleteReturns: "json" });
 
-route({ tags: ["Contratistas"], method: "get", path: "/contratistas", summary: "Listado público de contratistas", description: "Con `id_campo` filtra por la localidad del campo (cercanía) y, si no hay resultados, por su provincia; `alcance` indica cuál aplicó. Incluye servicios activos con precio vigente, valoración promedio y trabajos completados.", request: { query: ContratistaQuerySchema }, responses: { 200: json(PageOf("Page_Contratistas").extend({ alcance: z.enum(["localidad", "provincia", "todos"]) }), "Listado") } });
+route({
+  tags: ["Contratistas"],
+  method: "get",
+  path: "/contratistas",
+  summary: "Listado público de contratistas",
+  description: [
+    "Con `id_campo` y sin `radio_km`, filtra por la localidad del campo y, si no hay resultados, por su provincia; `alcance` indica cuál aplicó. Además informa `distancia_km` cuando se puede medir.",
+    "Con `radio_km`, el filtro geográfico pasa a ser la distancia real (Haversine): se ordena de más cerca a más lejos y se excluye a quien no tiene ubicación conocida. Si nadie entra en el radio se prueba el doble y el cuádruple, informándolo en `cercania.ampliado`.",
+    "El origen es el punto del campo y, si no lo tiene, el centro de su localidad. El punto de cada contratista es el que declaró él mismo o, si no, el centro de su localidad: eso se informa en `punto_fuente`. La ubicación declarada por el contratista nunca se publica, solo la distancia derivada.",
+  ].join("\n\n"),
+  request: { query: ContratistaQuerySchema },
+  responses: {
+    200: json(
+      PageOf("Page_Contratistas").extend({
+        alcance: z.enum(["localidad", "provincia", "todos", "radio"]),
+        cercania: z
+          .object({
+            origen: z.object({ lat: z.number(), lng: z.number(), fuente: z.enum(["campo", "localidad_campo"]).nullable() }).nullable(),
+            radio_km: z.number().nullable(),
+            radio_aplicado_km: z.number().nullable(),
+            ampliado: z.boolean(),
+            sin_ubicacion: z.number().describe("Contratistas excluidos por no tener ubicación conocida"),
+            truncado: z.boolean().describe("El universo de candidatos superó el tope y se procesó solo una parte"),
+            motivo: z.literal("campo_sin_coordenadas").nullable(),
+          })
+          .optional()
+          .describe("Presente cuando se indicó un campo"),
+      }),
+      "Listado",
+    ),
+  },
+});
 route({ tags: ["Contratistas"], method: "get", path: "/contratistas/{id}", summary: "Perfil público de un contratista con servicios y valoraciones", request: { params: IdParam }, responses: { 200: json(anyObj, "Contratista"), ...errors(404) } });
 route({ tags: ["Contratistas"], method: "put", path: "/contratistas/{id}/verificado", summary: "Otorgar o quitar la insignia de verificado", description: "Solo ADMIN. La insignia indica que se revisaron identidad y datos fiscales; queda registrada la fecha.", roles: ["ADMIN"], request: { params: IdParam, body: json(VerificarSchema, "Estado de la insignia") }, responses: { 200: json(anyObj, "Contratista"), ...errors(404) } });
 

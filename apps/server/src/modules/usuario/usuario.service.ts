@@ -14,8 +14,15 @@ export function toPublicUser(u: UserRow) {
     ...rest,
     roles: user_roles.map((ur) => ur.roles.name as RoleName),
     productor: productor_profile ? { razon_social: productor_profile.razon_social } : null,
+    // Las coordenadas viajan acá porque este payload es el del propio usuario (o
+    // el del admin), nunca el listado público de contratistas.
     contratista: contratista_profile
-      ? { descripcion: contratista_profile.descripcion, anios_experiencia: contratista_profile.anios_experiencia }
+      ? {
+          descripcion: contratista_profile.descripcion,
+          anios_experiencia: contratista_profile.anios_experiencia,
+          latitud: contratista_profile.latitud,
+          longitud: contratista_profile.longitud,
+        }
       : null,
   };
 }
@@ -54,9 +61,9 @@ export const usuarioService = {
   create: async (dto: UsuarioCreateDto) => {
     const roles = await resolveRoles(dto.roles);
     const password_hash = await bcrypt.hash(dto.password, 10);
-    const { email, password: _p, roles: _r, razon_social, descripcion, anios_experiencia, ...persona } = dto;
+    const { email, password: _p, roles: _r, razon_social, descripcion, anios_experiencia, latitud, longitud, ...persona } = dto;
     const row = await usuarioRepo
-      .save(null, { ...persona, email, password_hash }, roles, { razon_social, descripcion, anios_experiencia })
+      .save(null, { ...persona, email, password_hash }, roles, { razon_social, descripcion, anios_experiencia, latitud, longitud })
       .catch((e) => translatePrisma(e, { P2002: DUP_EMAIL, P2003: FK_LOC }));
     return toPublicUser(row);
   },
@@ -84,9 +91,9 @@ export const usuarioService = {
     }
 
     const password_hash = dto.password ? await bcrypt.hash(dto.password, 10) : undefined;
-    const { email, password: _p, roles: _r, razon_social, descripcion, anios_experiencia, ...persona } = dto;
+    const { email, password: _p, roles: _r, razon_social, descripcion, anios_experiencia, latitud, longitud, ...persona } = dto;
     const row = await usuarioRepo
-      .save(id, { ...persona, email, password_hash }, roles, { razon_social, descripcion, anios_experiencia })
+      .save(id, { ...persona, email, password_hash }, roles, { razon_social, descripcion, anios_experiencia, latitud, longitud })
       .catch((e) => translatePrisma(e, { P2002: DUP_EMAIL, P2003: FK_LOC }));
     return toPublicUser(row);
   },

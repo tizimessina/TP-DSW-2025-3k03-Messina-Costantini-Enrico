@@ -15,7 +15,13 @@ export const localidadService = {
 
   create: (dto: LocalidadCreateDto) =>
     localidadRepo
-      .create({ id_provincia: dto.id_provincia, nombre: dto.nombre, codigo_postal: dto.codigo_postal || null })
+      .create({
+        id_provincia: dto.id_provincia,
+        nombre: dto.nombre,
+        codigo_postal: dto.codigo_postal || null,
+        latitud: dto.latitud ?? null,
+        longitud: dto.longitud ?? null,
+      })
       .catch((e) => translatePrisma(e, { P2003: badRequest('FK_INVALID', 'La provincia no existe'), P2002: DUP })),
 
   update: async (id: bigint, dto: LocalidadUpdateDto) => {
@@ -25,6 +31,9 @@ export const localidadService = {
         ...(dto.nombre !== undefined ? { nombre: dto.nombre } : {}),
         // `null` o "" limpian el código postal; undefined lo deja como está
         ...(dto.codigo_postal !== undefined ? { codigo_postal: dto.codigo_postal || null } : {}),
+        // Las coordenadas siguen la misma regla: null las borra, undefined no toca
+        ...(dto.latitud !== undefined ? { latitud: dto.latitud } : {}),
+        ...(dto.longitud !== undefined ? { longitud: dto.longitud } : {}),
       })
       .catch((e) => translatePrisma(e, { P2002: DUP }));
   },

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ROLE_NAMES } from '../../core/auth/types.js';
 import { PaginationQuerySchema } from '../../core/http/pagination.js';
+import { CoordenadasSchema } from '../../core/util/geo.js';
 
 export const CuitSchema = z.string().trim().regex(/^\d{2}-\d{8}-\d$/, 'Formato de CUIT/CUIL: 20-12345678-9');
 export const TelefonoSchema = z.string().trim().min(6).max(30);
@@ -19,6 +20,8 @@ export const PersonaSchema = z.object({
   razon_social: z.string().trim().max(150).optional().nullable(),
   descripcion: z.string().trim().max(600).optional().nullable(),
   anios_experiencia: z.coerce.number().int().min(0).max(80).optional().nullable(),
+  /** Base de operaciones del contratista: solo se publica la distancia derivada. */
+  ...CoordenadasSchema,
 });
 
 export const UsuarioCreateSchema = PersonaSchema.extend({

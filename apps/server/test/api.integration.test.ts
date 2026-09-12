@@ -85,13 +85,74 @@ describe("permisos y privacidad", () => {
 });
 
 describe("cercanía", () => {
-  it("con id_campo filtra por la localidad del campo y cae a provincia si no hay nadie", async () => {
+  /** Campo del seed en Pergamino, con coordenadas cargadas. */
+  const campoDelSeed = async () => {
     const campos = await request(app).get("/campos").set(auth(productor));
-    const campo = campos.body.find((c: any) => c.nombre.includes("Lote 1"));
+    return campos.body.find((c: any) => c.nombre.includes("Lote 1"));
+  };
+
+  it("sin radio filtra por la localidad del campo y cae a provincia si no hay nadie, e informa la distancia", async () => {
+    const campo = await campoDelSeed();
     const res = await request(app).get("/contratistas").query({ id_campo: campo.id_campo });
     expect(res.status).toBe(200);
     expect(["localidad", "provincia"]).toContain(res.body.alcance);
     expect(res.body.items.length).toBeGreaterThan(0);
+    // El comportamiento no cambió, pero ahora además viene la distancia.
+    expect(res.body.items[0].distancia_km).toBeTypeOf("number");
+  });
+
+  it("con radio filtra por distancia real y ordena de más cerca a más lejos", async () => {
+    const campo = await campoDelSeed();
+    const res = await request(app).get("/contratistas").query({ id_campo: campo.id_campo, radio_km: 200 });
+    expect(res.status).toBe(200);
+    expect(res.body.alcance).toBe("radio");
+    expect(res.body.cercania.origen.fuente).toBe("campo");
+    expect(res.body.cercania.ampliado).toBe(false);
+
+    const distancias = res.body.items.map((i: any) => i.distancia_km);
+    expect(distancias.every((d: unknown) => typeof d === "number")).toBe(true);
+    expect(distancias).toEqual([...distancias].sort((a: number, b: number) => a - b));
+    expect(Math.max(...distancias)).toBeLessThanOrEqual(200);
+
+    // Marta Giménez está en Río Cuarto, a unos 360 km: queda afuera.
+    const apellidos = res.body.items.map((i: any) => i.users.apellido);
+    expect(apellidos).not.toContain("Giménez");
+  });
+
+  it("el punto propio del contratista le gana al centro de su localidad y nunca se expone", async () => {
+    const campo = await campoDelSeed();
+    const res = await request(app).get("/contratistas").query({ id_campo: campo.id_campo, radio_km: 500 });
+    const molina = res.body.items.find((i: any) => i.users.apellido === "Molina");
+    expect(molina.punto_fuente).toBe("propio");
+    // La base declarada por el contratista es privada: solo se publica la distancia.
+    expect(molina.latitud).toBeUndefined();
+    expect(molina.longitud).toBeUndefined();
+  });
+
+  it("amplía el radio cuando no hay nadie tan cerca", async () => {
+    const campo = await campoDelSeed();
+    const res = await request(app).get("/contratistas").query({ id_campo: campo.id_campo, radio_km: 50 });
+    expect(res.body.alcance).toBe("radio");
+    // A 50 km solo está el de Pergamino; con 25 km no habría nadie y se ampliaría.
+    const chico = await request(app).get("/contratistas").query({ id_campo: campo.id_campo, radio_km: 1 });
+    expect(chico.body.cercania.ampliado).toBe(true);
+    expect(chico.body.cercania.radio_aplicado_km).toBeGreaterThan(1);
+  });
+
+  it("un campo sin coordenadas cae a la búsqueda por localidad y lo dice", async () => {
+    const locs = await request(app).get("/localidades");
+    const alta = await request(app)
+      .post("/campos")
+      .set(auth(productor))
+      .send({ nombre: "Lote sin ubicación", id_localidad: locs.body[0].id_localidad, hectareas: 30 });
+    expect(alta.status).toBe(201);
+    created.campos.push(alta.body.id_campo);
+
+    const res = await request(app).get("/contratistas").query({ id_campo: alta.body.id_campo, radio_km: 50 });
+    expect(res.status).toBe(200);
+    expect(["localidad", "provincia"]).toContain(res.body.alcance);
+    expect(res.body.cercania.motivo).toBe("campo_sin_coordenadas");
+    expect(res.body.cercania.origen).toBeNull();
   });
 });
 
